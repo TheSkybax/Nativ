@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+enum VisibilityLevel {
+  EVERYONE
+  VERIFIED_ONLY
+  FOLLOWERS
+  VERIFIED_FOLLOWERS
+  PRIVATE
+}
+
+enum InteractionSetting {
+  EVERYONE
+  VERIFIED_ONLY
+  FOLLOWERS
+  VERIFIED_FOLLOWERS
+  DISABLED
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  passwordHash    String
+  username        String    @unique
+  verified        Boolean   @default(false)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  profile         Profile?
+  posts           Post[]
+  comments        Comment[]
+  reactions       Reaction[]
+  reposts         Repost[]
+  notifications   Notification[]
+  followsGiven    Follow[]   @relation("FollowedBy")
+  followsReceived Follow[]   @relation("FollowedUser")
+  blockedUsers    Block[]    @relation("BlockedBy")
+  blockedByUsers  Block[]    @relation("BlockedUser")
+  userBadges      UserBadge[]
+  subscriptions   Subscription[]
+}
+
+model Profile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id])
+  displayName    String?
+  bio            String?
+  avatarUrl      String?
+  profileTheme   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("FollowedBy", fields: [followerId], references: [id])
+  following   User     @relation("FollowedUser", fields: [followingId], references: [id])
+
+  @@unique([followerId, followingId])
+}
+
+model Block {
+  id         String   @id @default(cuid())
+  blockerId  String
+  blockedId  String
+  createdAt  DateTime @default(now())
+  blocker    User     @relation("BlockedBy", fields: [blockerId], references: [id])
+  blocked    User     @relation("BlockedUser", fields: [blockedId], references: [id])
+
+  @@unique([blockerId, blockedId])
+}
+
+model Post {
+  id          String          @id @default(cuid())
+  authorId    String
+  author      User            @relation(fields: [authorId], references: [id])
+  body        String
+  visibility  VisibilityLevel @default(EVERYONE)
+  isAd        Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  parentId    String?
+  parent      Post?           @relation("PostReplies", fields: [parentId], references: [id])
+  replies     Post[]          @relation("PostReplies")
+  comments    Comment[]
+  reactions   Reaction[]
+  reposts     Repost[]
+}
+
+// A repost references an existing Post. Authorization must always be evaluated
+// against originalPost.visibility; the reposter's settings never broaden access.
+model Repost {
+  id             String   @id @default(cuid())
+  userId         String
+  originalPostId String
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id])
+  originalPost   Post     @relation(fields: [originalPostId], references: [id])
+
+  @@unique([userId, originalPostId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  authorId  String
+  postId    String
+  body      String
+  createdAt DateTime @default(now())
+  author    User     @relation(fields: [authorId], references: [id])
+  post      Post     @relation(fields: [postId], references: [id])
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  type      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  post      Post     @relation(fields: [postId], references: [id])
+
+  @@unique([userId, postId, type])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  recipientId String
+  type        String
+  message     String
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+  recipient   User     @relation(fields: [recipientId], references: [id])
+}
+
+model Badge {
+  id          String      @id @default(cuid())
+  slug        String      @unique
+  name        String
+  description String?
+  createdAt   DateTime    @default(now())
+  userBadges  UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  badgeId   String
+  earnedAt  DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  badge     Badge    @relation(fields: [badgeId], references: [id])
+
+  @@unique([userId, badgeId])
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String
+  status    String   @default("inactive")
+  startedAt DateTime?
+  endsAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
