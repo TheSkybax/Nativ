@@ -23,6 +23,7 @@ export default async function ProfilePage({
   const owner = {
     ...demoUsers[0],
     followers: 12,
+    verifiedFollowers: 8,
     following: 73,
     posts: 18
   };

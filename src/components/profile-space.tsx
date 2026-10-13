@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useReducer, useState } from "react";
 import type { BadgeDefinition } from "@/lib/personalization";
 import type { ProfileCustomization } from "@/lib/personalization";
+import { createProfileEditState, profileEditReducer } from "@/lib/profile-edit";
 
 type ProfileAccount = {
   id: string;
@@ -12,6 +13,7 @@ type ProfileAccount = {
   bio: string;
   avatar: string;
   followers: number;
+  verifiedFollowers?: number;
   following: number;
   posts: number;
 };
@@ -53,10 +55,15 @@ export function ProfileSpace({
   initialViewedAccountId?: string;
 }) {
   const [viewedAccountId, setViewedAccountId] = useState(initialViewedAccountId ?? owner.id);
-  const [editing, setEditing] = useState(false);
-  const [bio, setBio] = useState(owner.bio);
+  const [followerCountExpanded, setFollowerCountExpanded] = useState(false);
+  const [profileEdit, dispatchProfileEdit] = useReducer(
+    profileEditReducer,
+    { displayName: owner.displayName, bio: owner.bio },
+    createProfileEditState
+  );
+  const { editing } = profileEdit;
   const isOwner = viewedAccountId === owner.id;
-  const account = isOwner ? owner : visitor;
+  const account = isOwner ? { ...owner, ...profileEdit.saved } : visitor;
   const bannerBackground = backgroundStyles[customization.background];
   const nameColor = nameColors[customization.nameColor];
 
@@ -75,14 +82,27 @@ export function ProfileSpace({
             <div className="profile-heading-copy">
               <p className="eyebrow">{isOwner ? "My profile" : "Public profile"}</p>
               <h1 style={{ color: isOwner ? nameColor : "var(--text-primary)" }}>
-                {account.displayName} {account.verified ? <span className="verified-badge">✓</span> : null}
+                <span className="profile-display-name">{account.displayName}</span>
+                {account.verified ? (
+                  <svg className="profile-verified-seal" viewBox="0 0 24 24" role="img" aria-label="Verified account">
+                    <defs>
+                      <linearGradient id="profile-verified-gold" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0" stopColor="#fff1a8" />
+                        <stop offset="0.52" stopColor="#e5b943" />
+                        <stop offset="1" stopColor="#aa7418" />
+                      </linearGradient>
+                    </defs>
+                    <path d="m12 1.2 2.7 2 3.4-.2 1.4 3.1 3 1.7-.6 3.4 1.4 3.1-2.4 2.5-.4 3.4-3.3.9L15 23l-3-1.5L9 23l-2.2-2.3-3.3-.9-.4-3.4L.7 14l1.4-3.1-.6-3.4 3-1.7 1.4-3.1 3.4.2z" fill="url(#profile-verified-gold)" stroke="#8c6118" strokeLinejoin="round" />
+                    <path d="m7.5 12.2 3 3 6.2-6.4" fill="none" stroke="#fffdf3" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+                  </svg>
+                ) : null}
               </h1>
               <p className="light-text">@{account.username}</p>
             </div>
             <div className="profile-actions">
               {isOwner ? (
                 <>
-                  <button className="profile-action light-action" type="button" onClick={() => setEditing((current) => !current)}>{editing ? "Done" : "Edit profile"}</button>
+                  {!editing ? <button className="profile-action light-action" type="button" onClick={() => dispatchProfileEdit({ type: "open" })}>Edit profile</button> : null}
                   <button className="profile-action light-action" type="button">Customize</button>
                 </>
               ) : (
@@ -95,19 +115,67 @@ export function ProfileSpace({
           </div>
         </div>
 
-        <div className="profile-stats">
-          <span><strong>{account.posts}</strong> Posts</span>
-          <span><strong>{account.followers}</strong> Followers</span>
-          <span><strong>{account.following}</strong> Following</span>
-        </div>
+        {isOwner ? (
+          <div className="profile-stats profile-stats-owner">
+            <span><strong>{account.posts}</strong> Posts</span>
+            <span><strong>{account.following}</strong> Following</span>
+            <div className="profile-follower-stat">
+              <span className="profile-follower-count">
+                <strong>{(account.verifiedFollowers ?? 0).toLocaleString("en-US")}</strong>{" "}
+                {followerCountExpanded ? "Verified / " : "Verified Followers"}
+                {followerCountExpanded ? (
+                  <>
+                    <strong>{account.followers.toLocaleString("en-US")}</strong> total followers
+                  </>
+                ) : null}
+                <button
+                  className="profile-follower-toggle"
+                  type="button"
+                  aria-label={followerCountExpanded ? "Hide total follower count" : "Show total follower count"}
+                  aria-expanded={followerCountExpanded}
+                  onClick={() => setFollowerCountExpanded((expanded) => !expanded)}
+                >
+                  {followerCountExpanded ? "⌄" : "⌃"}
+                </button>
+              </span>
+              <span className="profile-follower-demo">Demo counts</span>
+            </div>
+          </div>
+        ) : (
+          <div className="profile-stats">
+            <span><strong>{account.posts}</strong> Posts</span>
+            <span><strong>{account.followers}</strong> Followers</span>
+            <span><strong>{account.following}</strong> Following</span>
+          </div>
+        )}
 
         <div className="profile-content-grid">
           <section className="profile-about-card panel dark-panel">
             <div className="profile-section-heading"><h2>About</h2>{isOwner && editing ? <span className="tag">Editing</span> : null}</div>
             {isOwner && editing ? (
-              <textarea value={bio} onChange={(event) => setBio(event.target.value)} rows={4} aria-label="Edit bio" />
+              <>
+                <label className="profile-edit-field">
+                  Display name
+                  <input
+                    value={profileEdit.draft.displayName}
+                    onChange={(event) => dispatchProfileEdit({ type: "change", field: "displayName", value: event.target.value })}
+                  />
+                </label>
+                <label className="profile-edit-field">
+                  About
+                  <textarea
+                    value={profileEdit.draft.bio}
+                    onChange={(event) => dispatchProfileEdit({ type: "change", field: "bio", value: event.target.value })}
+                    rows={4}
+                  />
+                </label>
+                <div className="profile-edit-actions">
+                  <button className="profile-action light-action" type="button" onClick={() => dispatchProfileEdit({ type: "save" })}>Save</button>
+                  <button className="profile-action subtle-action" type="button" onClick={() => dispatchProfileEdit({ type: "cancel" })}>Cancel</button>
+                </div>
+              </>
             ) : (
-              <p className="profile-bio">{account.id === owner.id ? bio : account.bio}</p>
+              <p className="profile-bio">{account.bio}</p>
             )}
             <div className="profile-meta-row">
               <span>Joined August 2024</span>
@@ -123,7 +191,6 @@ export function ProfileSpace({
                 <div key={badge.slug} className="badge-tile" title={badge.description}>
                   <span className="badge-icon">{badgeIcons[badge.slug] ?? "●"}</span>
                   <strong>{badge.label}</strong>
-                  <small>{badge.kind}</small>
                 </div>
               ))}
             </div>
