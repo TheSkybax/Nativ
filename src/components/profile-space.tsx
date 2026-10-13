@@ -1,6 +1,7 @@
 "use client";
 
-import { useReducer, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
+import { BadgeIcon } from "@/components/badge-icon";
 import type { BadgeDefinition } from "@/lib/personalization";
 import type { ProfileCustomization } from "@/lib/personalization";
 import { createProfileEditState, profileEditReducer } from "@/lib/profile-edit";
@@ -33,39 +34,85 @@ const backgroundStyles = {
   lavender: "linear-gradient(135deg, var(--brand-navy) 0%, var(--brand-teal-soft) 100%)"
 };
 
-const badgeIcons: Record<string, string> = {
-  "founder-1000": "✦",
-  veteran: "◷",
-  contributor: "✎",
-  creator: "✹",
-  "prompt-participant": "▣"
-};
-
 export function ProfileSpace({
   owner,
   visitor,
   customization,
   badges,
+  visitorBadges,
   initialViewedAccountId
 }: {
   owner: ProfileAccount;
   visitor: ProfileAccount;
   customization: ProfileCustomization;
   badges: BadgeDefinition[];
+  visitorBadges: BadgeDefinition[];
   initialViewedAccountId?: string;
 }) {
   const [viewedAccountId, setViewedAccountId] = useState(initialViewedAccountId ?? owner.id);
   const [followerCountExpanded, setFollowerCountExpanded] = useState(false);
+  const [activeBadgeSlug, setActiveBadgeSlug] = useState<string | null>(null);
+  const [isBadgePopupClosing, setIsBadgePopupClosing] = useState(false);
   const [profileEdit, dispatchProfileEdit] = useReducer(
     profileEditReducer,
-    { displayName: owner.displayName, bio: owner.bio },
+    {
+      displayName: owner.displayName,
+      bio: owner.bio,
+      visibleBadgeSlugs: badges.map((badge) => badge.slug)
+    },
     createProfileEditState
   );
   const { editing } = profileEdit;
   const isOwner = viewedAccountId === owner.id;
   const account = isOwner ? { ...owner, ...profileEdit.saved } : visitor;
+  const earnedBadges = isOwner ? badges : visitorBadges;
+  const displayedBadges = isOwner
+    ? badges.filter((badge) => profileEdit.saved.visibleBadgeSlugs.includes(badge.slug))
+    : visitorBadges;
+  const profileBadges = isOwner && editing
+    ? badges
+    : displayedBadges;
+  const activeBadge = earnedBadges.find((badge) => badge.slug === activeBadgeSlug);
   const bannerBackground = backgroundStyles[customization.background];
   const nameColor = nameColors[customization.nameColor];
+
+  useEffect(() => {
+    if (!activeBadgeSlug) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setIsBadgePopupClosing(true), 3500);
+    return () => window.clearTimeout(timeout);
+  }, [activeBadgeSlug]);
+
+  useEffect(() => {
+    if (!isBadgePopupClosing) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setActiveBadgeSlug(null);
+      setIsBadgePopupClosing(false);
+    }, 160);
+    return () => window.clearTimeout(timeout);
+  }, [isBadgePopupClosing]);
+
+  useEffect(() => {
+    if (!activeBadgeSlug) {
+      return;
+    }
+
+    const dismissOnOutsideClick = (event: MouseEvent) => {
+      if (event.target instanceof Element && event.target.closest(".badge-tile")) {
+        return;
+      }
+
+      setIsBadgePopupClosing(true);
+    };
+
+    document.addEventListener("click", dismissOnOutsideClick);
+    return () => document.removeEventListener("click", dismissOnOutsideClick);
+  }, [activeBadgeSlug]);
 
   return (
     <main className="profile-page">
@@ -102,7 +149,11 @@ export function ProfileSpace({
             <div className="profile-actions">
               {isOwner ? (
                 <>
-                  {!editing ? <button className="profile-action light-action" type="button" onClick={() => dispatchProfileEdit({ type: "open" })}>Edit profile</button> : null}
+                  {editing ? (
+                    <button className="profile-action light-action" type="button" onClick={() => dispatchProfileEdit({ type: "save" })}>Save</button>
+                  ) : (
+                    <button className="profile-action light-action" type="button" onClick={() => dispatchProfileEdit({ type: "open" })}>Edit profile</button>
+                  )}
                   <button className="profile-action light-action" type="button">Customize</button>
                 </>
               ) : (
@@ -185,14 +236,53 @@ export function ProfileSpace({
           </section>
 
           <section className="profile-badges-card panel dark-panel">
-            <div className="profile-section-heading"><h2>Badges</h2><span className="muted">{badges.length} earned</span></div>
+            <div className="profile-section-heading">
+              <h2>Badges</h2>
+              <span className="muted">{earnedBadges.length} Total Badges</span>
+            </div>
+            <p className="badge-demo-note">Demo account dates, post totals, and badge assignments; event tracking is not connected.</p>
+            {isOwner && editing ? <p className="badge-edit-hint">Select the badges you want to show on your profile.</p> : null}
             <div className="badge-grid">
-              {badges.map((badge) => (
-                <div key={badge.slug} className="badge-tile" title={badge.description}>
-                  <span className="badge-icon">{badgeIcons[badge.slug] ?? "●"}</span>
-                  <strong>{badge.label}</strong>
-                </div>
-              ))}
+              {profileBadges
+                .filter((badge) => !isOwner || editing || profileEdit.saved.visibleBadgeSlugs.includes(badge.slug))
+                .map((badge) => {
+                  const isSelected = profileEdit.draft.visibleBadgeSlugs.includes(badge.slug);
+                  const selectable = isOwner && editing;
+
+                  return (
+                    <div key={badge.slug} className="badge-tile-wrap">
+                      <button
+                        className={`badge-tile ${selectable ? "badge-tile-selectable" : "badge-tile-informative"} ${selectable && isSelected ? "selected" : ""}`}
+                        type="button"
+                        aria-label={`${badge.label}: ${badge.description}${selectable ? ` (${isSelected ? "selected" : "not selected"})` : ""}`}
+                        aria-pressed={selectable ? isSelected : undefined}
+                        onClick={() => {
+                          setActiveBadgeSlug(badge.slug);
+                          setIsBadgePopupClosing(false);
+                          if (selectable) {
+                            dispatchProfileEdit({
+                              type: "toggle-badge",
+                              slug: badge.slug,
+                              visible: !isSelected
+                            });
+                          }
+                        }}
+                      >
+                        <BadgeIcon icon={badge.icon} category={badge.category} />
+                        <strong>{badge.label}</strong>
+                      </button>
+                      {activeBadge?.slug === badge.slug ? (
+                        <div className={`badge-description-popup${isBadgePopupClosing ? " closing" : ""}`} role="status" aria-live="polite">
+                          <div>
+                            <strong>{badge.label}</strong>
+                            <p>{badge.description}</p>
+                          </div>
+                          <button type="button" aria-label="Dismiss badge details" onClick={() => setIsBadgePopupClosing(true)}>×</button>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
             </div>
           </section>
         </div>

@@ -1,24 +1,84 @@
 import { describe, expect, it } from "vitest";
 import {
+  badgeCatalog,
+  badgeEligibility,
   buildProfileCustomization,
-  getAccountAgeBadge,
-  getFounderBadge,
+  demoBadgeThresholds,
+  EARLY_MEMBER_CUTOFF_DATE,
+  getAccountAgeBadges,
+  getEarlyMemberBadge,
+  getEarlySupporterBadge,
+  getFoundingMemberBadge,
+  getCommentMilestoneBadges,
+  getPostMilestoneBadges,
+  getProfileBadges,
   getThemeStyle,
   isHealthyBadgeSystem
 } from "./personalization";
 
 describe("phase 2 personalization", () => {
-  it("awards founder badges based on early membership thresholds", () => {
-    expect(getFounderBadge(250)).toMatchObject({ slug: "founder-1000" });
-    expect(getFounderBadge(12000)).toMatchObject({ slug: "founder-100000" });
-    expect(getFounderBadge(100000)).toMatchObject({ slug: "founder-100000" });
+  it("defines stable unique badge IDs across all requested categories", () => {
+    const slugs = badgeCatalog.map((badge) => badge.slug);
+    expect(badgeCatalog).toHaveLength(22);
+    expect(new Set(slugs).size).toBe(slugs.length);
+    expect(new Set(badgeCatalog.map((badge) => badge.category))).toEqual(
+      new Set(["membership", "posting", "conversation", "community", "prompt", "founder", "subscription"])
+    );
+    expect(Object.keys(badgeEligibility).sort()).toEqual([...slugs].sort());
+    expect(badgeCatalog.some((badge) => /verif/i.test(`${badge.slug} ${badge.label}`))).toBe(false);
   });
 
-  it("awards cumulative account age badges instead of streaks", () => {
-    const now = new Date("2026-08-18T00:00:00Z");
-    expect(getAccountAgeBadge("2024-08-18T00:00:00Z", now)).toMatchObject({
-      slug: "veteran"
-    });
+  it("uses the configured early-member date cutoff, not ordinary account age", () => {
+    expect(getEarlyMemberBadge("2025-12-31T23:59:59Z")?.slug).toBe("early-member");
+    expect(getEarlyMemberBadge(EARLY_MEMBER_CUTOFF_DATE)).toBeNull();
+    expect(getEarlyMemberBadge("not-a-date")).toBeNull();
+  });
+
+  it("awards account-age milestones only after their full anniversaries", () => {
+    expect(getAccountAgeBadges("2025-01-01T00:00:00Z", new Date("2025-12-31T23:59:59Z"))).toEqual([]);
+    expect(getAccountAgeBadges("2025-01-01T00:00:00Z", new Date("2026-01-01T00:00:00Z")).map((badge) => badge.slug))
+      .toEqual(["one-year"]);
+    expect(getAccountAgeBadges("2021-01-01T00:00:00Z", new Date("2026-01-01T00:00:00Z")).map((badge) => badge.slug))
+      .toEqual(["one-year", "five-years"]);
+  });
+
+  it("awards cumulative post milestones from the supplied post count", () => {
+    expect(getPostMilestoneBadges(0)).toEqual([]);
+    expect(getPostMilestoneBadges(1.5)).toEqual([]);
+    expect(getPostMilestoneBadges(99).map((badge) => badge.slug)).toEqual(["first-post"]);
+    expect(getPostMilestoneBadges(100).map((badge) => badge.slug)).toEqual(["first-post", "posts-100"]);
+    expect(getPostMilestoneBadges(10000).map((badge) => badge.slug)).toEqual([
+      "first-post", "posts-100", "posts-1000", "posts-10000"
+    ]);
+  });
+
+  it("uses documented configurable demo thresholds for comment milestones", () => {
+    expect(demoBadgeThresholds.activeConversationalistComments).toBe(50);
+    expect(demoBadgeThresholds.conversationRegularComments).toBe(250);
+    expect(getCommentMilestoneBadges(49).map((badge) => badge.slug)).toEqual(["first-conversation"]);
+    expect(getCommentMilestoneBadges(250).map((badge) => badge.slug)).toEqual([
+      "first-conversation", "active-conversationalist", "conversation-regular"
+    ]);
+  });
+
+  it("keeps founder designation separate from member and subscriber rank rules", () => {
+    expect(badgeEligibility.founder.basis).toBe("manual-assignment");
+    expect(getFoundingMemberBadge(1000)?.slug).toBe("founding-member");
+    expect(getFoundingMemberBadge(1001)).toBeNull();
+    expect(getFoundingMemberBadge(0)).toBeNull();
+    expect(getEarlySupporterBadge(100)?.slug).toBe("early-supporter");
+    expect(getEarlySupporterBadge(101)).toBeNull();
+  });
+
+  it("combines supported age/post rules with explicit demo assignments", () => {
+    expect(getProfileBadges({
+      createdAt: "2025-01-01T00:00:00Z",
+      postCount: 1,
+      assignedBadgeSlugs: ["founder", "first-prompt"],
+      now: new Date("2026-02-01T00:00:00Z")
+    }).map((badge) => badge.slug)).toEqual([
+      "early-member", "one-year", "first-post", "first-prompt", "founder"
+    ]);
   });
 
   it("creates a profile customization package with user values", () => {

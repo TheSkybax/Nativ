@@ -1,3 +1,5 @@
+import type { BadgeSlug } from "@/lib/personalization";
+
 export const demoUsers = [
   {
     id: "user-1",
@@ -44,12 +46,11 @@ export const demoProfileCustomization = {
   musicMood: "ambient"
 } as const;
 
-export const demoBadges = [
-  { slug: "founder-1000", label: "Founder", description: "One of the first 1,000 users" },
-  { slug: "veteran", label: "Veteran", description: "Account age badge" },
-  { slug: "contributor", label: "Contributor", description: "Helpful participation" },
-  { slug: "creator", label: "Creator", description: "Long-form participation" }
-];
+export const demoBadgeAssignments: Record<string, BadgeSlug[]> = {
+  "user-1": ["founder", "founding-member", "first-conversation", "community-member", "first-prompt"],
+  "user-2": ["first-conversation", "community-member", "first-prompt"]
+};
+export const demoBadgeAsOf = "2026-10-12T00:00:00Z";
 
 export const demoFollowing = new Set(["user-1", "user-2", "user-3"]);
 export const demoBlocks = new Set<string>();

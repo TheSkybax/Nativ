@@ -3,7 +3,8 @@ import { createProfileEditState, profileEditReducer } from "./profile-edit";
 
 const savedProfile = {
   displayName: "Calvin M.",
-  bio: "Photographer, maker, and weekend walker."
+  bio: "Photographer, maker, and weekend walker.",
+  visibleBadgeSlugs: ["founder", "one-year", "first-post", "first-conversation"]
 };
 
 describe("profile editing", () => {
@@ -32,8 +33,8 @@ describe("profile editing", () => {
     });
 
     expect(profileEditReducer(changedBio, { type: "save" })).toEqual({
-      saved: { displayName: "Calvin", bio: "Photographer and maker." },
-      draft: { displayName: "Calvin", bio: "Photographer and maker." },
+      saved: { ...savedProfile, displayName: "Calvin", bio: "Photographer and maker." },
+      draft: { ...savedProfile, displayName: "Calvin", bio: "Photographer and maker." },
       editing: false
     });
   });
@@ -51,6 +52,31 @@ describe("profile editing", () => {
       draft: savedProfile,
       editing: false
     });
+  });
+
+  it("saves the selected badges", () => {
+    const editing = profileEditReducer(createProfileEditState(savedProfile), { type: "open" });
+    const updatedSelection = profileEditReducer(editing, {
+      type: "toggle-badge",
+      slug: "one-year",
+      visible: false
+    });
+
+    expect(profileEditReducer(updatedSelection, { type: "save" }).saved).toEqual({
+      ...savedProfile,
+      visibleBadgeSlugs: ["founder", "first-post", "first-conversation"]
+    });
+  });
+
+  it("discards badge display changes when cancelled", () => {
+    const editing = profileEditReducer(createProfileEditState(savedProfile), { type: "open" });
+    const hiddenBadge = profileEditReducer(editing, {
+      type: "toggle-badge",
+      slug: "first-conversation",
+      visible: false
+    });
+
+    expect(profileEditReducer(hiddenBadge, { type: "cancel" }).saved).toEqual(savedProfile);
   });
 
   it("saves without changing saved values when there are no edits", () => {

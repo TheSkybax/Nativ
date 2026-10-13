@@ -14,13 +14,77 @@ export type ProfileCustomization = {
   };
 };
 
+export type BadgeCategory =
+  | "membership"
+  | "posting"
+  | "conversation"
+  | "community"
+  | "prompt"
+  | "founder"
+  | "subscription";
+
+export type BadgeIconName =
+  | "sprout"
+  | "calendar-one"
+  | "calendar-five"
+  | "paper-pencil"
+  | "post-stack-100"
+  | "post-stack-1k"
+  | "post-stack-10k"
+  | "speech-first"
+  | "speech-active"
+  | "speech-regular"
+  | "community-member"
+  | "community-regular"
+  | "community-contributor"
+  | "camera-first"
+  | "camera-regular"
+  | "camera-veteran"
+  | "founder-shield"
+  | "founding-group"
+  | "supporter-hand"
+  | "ad-free"
+  | "support-month"
+  | "support-year";
+
 export type BadgeDefinition = {
   slug: string;
   label: string;
   description: string;
-  kind: "founder" | "age" | "achievement";
-  threshold?: number;
+  category: BadgeCategory;
+  icon: BadgeIconName;
 };
+
+export type BadgeEligibilityRule = {
+  basis:
+    | "join-date"
+    | "post-count"
+    | "comment-count"
+    | "community-discussion-count"
+    | "prompt-response-count"
+    | "manual-assignment"
+    | "member-rank"
+    | "subscription-rank"
+    | "active-subscription"
+    | "subscription-duration";
+  threshold?: number;
+  cutoff?: string;
+  demoOnly?: boolean;
+  note?: string;
+};
+
+export const EARLY_MEMBER_CUTOFF_DATE = "2026-01-01T00:00:00Z";
+export const FOUNDING_MEMBER_RANK_CUTOFF = 1000;
+export const EARLY_SUPPORTER_SUBSCRIBER_RANK_CUTOFF = 100;
+
+export const demoBadgeThresholds = {
+  activeConversationalistComments: 50,
+  conversationRegularComments: 250,
+  communityRegularDiscussions: 25,
+  communityContributorDiscussions: 100,
+  promptRegularResponses: 7,
+  promptVeteranResponses: 30
+} as const;
 
 export const themeCatalog: Record<ThemeName, { label: string; gradient: string }> = {
   forest: {
@@ -45,47 +109,58 @@ export const themeCatalog: Record<ThemeName, { label: string; gradient: string }
   }
 };
 
-export const badgeCatalog: BadgeDefinition[] = [
-  {
-    slug: "founder-1000",
-    label: "Founder",
-    description: "One of the first 1,000 users to join the platform.",
-    kind: "founder",
-    threshold: 1000
-  },
-  {
-    slug: "founder-10000",
-    label: "Early Member",
-    description: "One of the first 10,000 users to join and help shape the community.",
-    kind: "founder",
-    threshold: 10000
-  },
-  {
-    slug: "founder-100000",
-    label: "Community Builder",
-    description: "A member of the earliest 100,000 users to join.",
-    kind: "founder",
-    threshold: 100000
-  },
-  {
-    slug: "veteran",
-    label: "Veteran",
-    description: "Account age badge earned through long-term community participation.",
-    kind: "age"
-  },
-  {
-    slug: "contributor",
-    label: "Contributor",
-    description: "Meaningful participation and helpful discussion.",
-    kind: "achievement"
-  },
-  {
-    slug: "creator",
-    label: "Creator",
-    description: "Long-form thinking and community value creation.",
-    kind: "achievement"
-  }
-];
+export const badgeCatalog = [
+  { slug: "early-member", label: "Early Member", description: "Joined Nativ before the designated early-membership cutoff.", category: "membership", icon: "sprout" },
+  { slug: "one-year", label: "One Year", description: "One full year since creating the account.", category: "membership", icon: "calendar-one" },
+  { slug: "five-years", label: "Five Years", description: "Five full years since creating the account.", category: "membership", icon: "calendar-five" },
+  { slug: "first-post", label: "First Post", description: "Published an original post for the first time.", category: "posting", icon: "paper-pencil" },
+  { slug: "posts-100", label: "100 Posts", description: "Published 100 original posts.", category: "posting", icon: "post-stack-100" },
+  { slug: "posts-1000", label: "1,000 Posts", description: "Published 1,000 original posts.", category: "posting", icon: "post-stack-1k" },
+  { slug: "posts-10000", label: "10,000 Posts", description: "Published 10,000 original posts.", category: "posting", icon: "post-stack-10k" },
+  { slug: "first-conversation", label: "First Conversation", description: "Joined a conversation by posting a comment.", category: "conversation", icon: "speech-first" },
+  { slug: "active-conversationalist", label: "Active Conversationalist", description: "Reached the demo comment-participation milestone.", category: "conversation", icon: "speech-active" },
+  { slug: "conversation-regular", label: "Conversation Regular", description: "Reached the higher demo comment-participation milestone.", category: "conversation", icon: "speech-regular" },
+  { slug: "community-member", label: "Community Member", description: "Participated in a community discussion.", category: "community", icon: "community-member" },
+  { slug: "community-regular", label: "Community Regular", description: "Participated in community discussions over time.", category: "community", icon: "community-regular" },
+  { slug: "community-contributor", label: "Community Contributor", description: "Made sustained contributions to community discussions.", category: "community", icon: "community-contributor" },
+  { slug: "first-prompt", label: "First Prompt", description: "Shared a response to a Daily Prompt for the first time.", category: "prompt", icon: "camera-first" },
+  { slug: "prompt-regular", label: "Prompt Regular", description: "Responded to multiple Daily Prompts over time.", category: "prompt", icon: "camera-regular" },
+  { slug: "prompt-veteran", label: "Prompt Veteran", description: "Reached a substantial cumulative Daily Prompt participation milestone.", category: "prompt", icon: "camera-veteran" },
+  { slug: "founder", label: "Founder", description: "Manually designated by Nativ as a founder.", category: "founder", icon: "founder-shield" },
+  { slug: "founding-member", label: "Founding Member", description: "Joined within the first 1,000 Nativ members (placeholder cutoff).", category: "founder", icon: "founding-group" },
+  { slug: "early-supporter", label: "Early Supporter", description: "One of the first 100 subscribers (eligibility tracking not connected).", category: "founder", icon: "supporter-hand" },
+  { slug: "ad-free-supporter", label: "Ad-Free Supporter", description: "Currently eligible for Nativ's ad-free subscription.", category: "subscription", icon: "ad-free" },
+  { slug: "one-month-supporting", label: "One Month Supporting", description: "Maintained an eligible subscription for one month.", category: "subscription", icon: "support-month" },
+  { slug: "one-year-supporting", label: "One Year Supporting", description: "Maintained an eligible subscription for one year.", category: "subscription", icon: "support-year" }
+] as const satisfies readonly BadgeDefinition[];
+
+export type BadgeSlug = (typeof badgeCatalog)[number]["slug"];
+type CatalogBadge = (typeof badgeCatalog)[number];
+
+export const badgeEligibility: Record<BadgeSlug, BadgeEligibilityRule> = {
+  "early-member": { basis: "join-date", cutoff: EARLY_MEMBER_CUTOFF_DATE, note: "Boilerplate cutoff; replace with the actual launch cutoff." },
+  "one-year": { basis: "join-date", threshold: 1 },
+  "five-years": { basis: "join-date", threshold: 5 },
+  "first-post": { basis: "post-count", threshold: 1 },
+  "posts-100": { basis: "post-count", threshold: 100 },
+  "posts-1000": { basis: "post-count", threshold: 1000 },
+  "posts-10000": { basis: "post-count", threshold: 10000 },
+  "first-conversation": { basis: "comment-count", threshold: 1 },
+  "active-conversationalist": { basis: "comment-count", threshold: demoBadgeThresholds.activeConversationalistComments, demoOnly: true },
+  "conversation-regular": { basis: "comment-count", threshold: demoBadgeThresholds.conversationRegularComments, demoOnly: true },
+  "community-member": { basis: "community-discussion-count", threshold: 1 },
+  "community-regular": { basis: "community-discussion-count", threshold: demoBadgeThresholds.communityRegularDiscussions, demoOnly: true, note: "Longitudinal participation tracking is not implemented." },
+  "community-contributor": { basis: "community-discussion-count", threshold: demoBadgeThresholds.communityContributorDiscussions, demoOnly: true, note: "Longitudinal participation tracking is not implemented." },
+  "first-prompt": { basis: "prompt-response-count", threshold: 1 },
+  "prompt-regular": { basis: "prompt-response-count", threshold: demoBadgeThresholds.promptRegularResponses, demoOnly: true },
+  "prompt-veteran": { basis: "prompt-response-count", threshold: demoBadgeThresholds.promptVeteranResponses, demoOnly: true },
+  founder: { basis: "manual-assignment", demoOnly: true, note: "Founder accounts are intended to be assigned manually." },
+  "founding-member": { basis: "member-rank", threshold: FOUNDING_MEMBER_RANK_CUTOFF, demoOnly: true, note: "The first-1,000 cutoff is a placeholder until launch membership ranks exist." },
+  "early-supporter": { basis: "subscription-rank", threshold: EARLY_SUPPORTER_SUBSCRIBER_RANK_CUTOFF, demoOnly: true, note: "Subscriber order and billing history are not tracked." },
+  "ad-free-supporter": { basis: "active-subscription", demoOnly: true, note: "Subscription status is not integrated." },
+  "one-month-supporting": { basis: "subscription-duration", threshold: 30, demoOnly: true, note: "Subscription history is not integrated; duration is in days." },
+  "one-year-supporting": { basis: "subscription-duration", threshold: 365, demoOnly: true, note: "Subscription history is not integrated; duration is in days." }
+};
 
 export function getThemeStyle(theme: ThemeName) {
   return themeCatalog[theme] ?? themeCatalog.forest;
@@ -106,36 +181,115 @@ export function buildProfileCustomization(input: Partial<ProfileCustomization> =
   };
 }
 
-export function getFounderBadge(memberRank: number): BadgeDefinition | null {
-  if (memberRank <= 1000) {
-    return badgeCatalog.find((badge) => badge.slug === "founder-1000") ?? null;
+export function getBadge(slug: BadgeSlug): CatalogBadge {
+  const badge = badgeCatalog.find((item) => item.slug === slug);
+  if (!badge) {
+    throw new Error(`Unknown badge: ${slug}`);
   }
 
-  if (memberRank <= 10000) {
-    return badgeCatalog.find((badge) => badge.slug === "founder-10000") ?? null;
-  }
-
-  if (memberRank <= 100000) {
-    return badgeCatalog.find((badge) => badge.slug === "founder-100000") ?? null;
-  }
-
-  return null;
+  return badge;
 }
 
-export function getAccountAgeBadge(createdAt: string, now = new Date()): BadgeDefinition | null {
+export function getEarlyMemberBadge(createdAt: string): CatalogBadge | null {
   const created = new Date(createdAt);
-  const diffMs = now.getTime() - created.getTime();
-  const days = diffMs / (1000 * 60 * 60 * 24);
-
-  if (days >= 730) {
-    return badgeCatalog.find((badge) => badge.slug === "veteran") ?? null;
+  if (Number.isNaN(created.getTime()) || created.getTime() >= Date.parse(EARLY_MEMBER_CUTOFF_DATE)) {
+    return null;
   }
 
-  if (days >= 365) {
-    return badgeCatalog.find((badge) => badge.slug === "contributor") ?? null;
+  return getBadge("early-member");
+}
+
+function hasReachedAnniversary(createdAt: string, years: number, now: Date) {
+  const created = new Date(createdAt);
+  if (Number.isNaN(created.getTime())) {
+    return false;
   }
 
-  return badgeCatalog.find((badge) => badge.slug === "contributor") ?? null;
+  const anniversary = new Date(created);
+  anniversary.setUTCFullYear(anniversary.getUTCFullYear() + years);
+  return now.getTime() >= anniversary.getTime();
+}
+
+export function getAccountAgeBadges(createdAt: string, now = new Date()): CatalogBadge[] {
+  const badges: CatalogBadge[] = [];
+
+  if (hasReachedAnniversary(createdAt, 1, now)) {
+    badges.push(getBadge("one-year"));
+  }
+
+  if (hasReachedAnniversary(createdAt, 5, now)) {
+    badges.push(getBadge("five-years"));
+  }
+
+  return badges;
+}
+
+export function getPostMilestoneBadges(postCount: number): CatalogBadge[] {
+  if (!Number.isInteger(postCount) || postCount < 1) {
+    return [];
+  }
+
+  const badges = [getBadge("first-post")];
+  if (postCount >= 100) {
+    badges.push(getBadge("posts-100"));
+  }
+  if (postCount >= 1000) {
+    badges.push(getBadge("posts-1000"));
+  }
+  if (postCount >= 10000) {
+    badges.push(getBadge("posts-10000"));
+  }
+
+  return badges;
+}
+
+export function getCommentMilestoneBadges(commentCount: number): CatalogBadge[] {
+  if (!Number.isInteger(commentCount) || commentCount < 1) {
+    return [];
+  }
+
+  const badges = [getBadge("first-conversation")];
+  if (commentCount >= demoBadgeThresholds.activeConversationalistComments) {
+    badges.push(getBadge("active-conversationalist"));
+  }
+  if (commentCount >= demoBadgeThresholds.conversationRegularComments) {
+    badges.push(getBadge("conversation-regular"));
+  }
+
+  return badges;
+}
+
+export function getFoundingMemberBadge(memberRank: number): CatalogBadge | null {
+  return Number.isInteger(memberRank) && memberRank > 0 && memberRank <= FOUNDING_MEMBER_RANK_CUTOFF
+    ? getBadge("founding-member")
+    : null;
+}
+
+export function getEarlySupporterBadge(subscriberRank: number): CatalogBadge | null {
+  return Number.isInteger(subscriberRank) && subscriberRank > 0 && subscriberRank <= EARLY_SUPPORTER_SUBSCRIBER_RANK_CUTOFF
+    ? getBadge("early-supporter")
+    : null;
+}
+
+export function getProfileBadges({
+  createdAt,
+  postCount,
+  assignedBadgeSlugs = [],
+  now = new Date()
+}: {
+  createdAt: string;
+  postCount: number;
+  assignedBadgeSlugs?: readonly BadgeSlug[];
+  now?: Date;
+}): CatalogBadge[] {
+  const earnedSlugs = new Set<BadgeSlug>([
+    ...assignedBadgeSlugs,
+    ...(getEarlyMemberBadge(createdAt) ? ["early-member" as const] : []),
+    ...getAccountAgeBadges(createdAt, now).map((badge) => badge.slug),
+    ...getPostMilestoneBadges(postCount).map((badge) => badge.slug)
+  ]);
+
+  return badgeCatalog.filter((badge) => earnedSlugs.has(badge.slug));
 }
 
 export function isHealthyBadgeSystem() {

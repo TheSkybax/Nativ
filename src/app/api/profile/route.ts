@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server";
-import { demoBadges, demoProfileCustomization } from "@/lib/demo-data";
-import { buildProfileCustomization, getAccountAgeBadge, getFounderBadge } from "@/lib/personalization";
+import { demoBadgeAsOf, demoBadgeAssignments, demoProfileCustomization, demoUsers } from "@/lib/demo-data";
+import { buildProfileCustomization, getProfileBadges } from "@/lib/personalization";
 
 export async function GET() {
   const customization = buildProfileCustomization(demoProfileCustomization);
+  const demoUser = demoUsers[0];
+  const badges = getProfileBadges({
+    createdAt: demoUser.createdAt,
+    postCount: 18,
+    assignedBadgeSlugs: demoBadgeAssignments[demoUser.id],
+    now: new Date(demoBadgeAsOf)
+  });
 
   return NextResponse.json({
     customization,
-    badges: [
-      getFounderBadge(250),
-      getAccountAgeBadge("2024-08-18T00:00:00Z", new Date("2026-08-18T00:00:00Z")),
-      ...demoBadges
-    ].filter(Boolean),
+    badgeDataStatus: "Demo account dates, post totals, and badge assignments; event tracking is not connected.",
+    badges,
     profile: {
       displayName: "Calvin M.",
       username: "calvinm",
