@@ -917,11 +917,17 @@ textarea {
   margin-top: 5px;
 }
 
-.profile-verified-seal {
+.profile-verified-seal,
+.post-verified-seal,
+.comment-verified-seal,
+.user-profile-verified-seal {
   display: inline-block;
-  width: 1em;
-  height: 1em;
+  width: 1.15em;
+  height: 1.15em;
   flex: 0 0 auto;
+}
+
+.profile-verified-seal {
   margin-left: 0.25em;
   filter: drop-shadow(0 1px 2px rgba(1, 10, 20, 0.45));
   vertical-align: -0.12em;
@@ -1602,7 +1608,14 @@ textarea {
   flex: 0 1 auto;
 }
 
-.customization-header-identity strong {
+.customization-preview-name {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.2em;
+}
+
+.customization-preview-name strong {
   overflow: hidden;
   color: var(--text-primary);
   text-overflow: ellipsis;
@@ -1648,7 +1661,7 @@ textarea {
     font-size: clamp(0.55rem, 2.2cqi, 0.68rem);
   }
 
-  .customization-header-identity strong {
+  .customization-preview-name {
     font-size: clamp(0.72rem, 3cqi, 1rem);
   }
 }
@@ -2116,8 +2129,11 @@ textarea {
   color: var(--brand-teal-soft);
 }
 
-.verified-badge {
-  color: var(--brand-teal-bright);
+.post-verified-seal,
+.comment-verified-seal {
+  margin-left: 0.2em;
+  vertical-align: -0.18em;
+  filter: drop-shadow(0 1px 1px rgba(1, 10, 20, 0.3));
 }
 
 .community-space-hero {
@@ -2169,9 +2185,6 @@ textarea {
 
 .user-profile-verified-seal {
   display: block;
-  width: 20px;
-  height: 20px;
-  flex: 0 0 auto;
   filter: drop-shadow(0 1px 2px rgba(1, 10, 20, 0.35));
 }
 

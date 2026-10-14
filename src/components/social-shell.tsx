@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { getCurrentDailyPrompt, promptResponsePreviews } from "@/lib/daily-prompt";
-import type { BadgeDefinition } from "@/lib/personalization";
+import { profileNameColorStyles, type BadgeDefinition } from "@/lib/personalization";
 import { AdvertisingProvider, SidebarAd, TopBannerAd } from "./banner-ad";
 import { DiscoveryFeed } from "./discovery-feed";
 import { FeedPostCard, type FeedPost } from "./feed-post-card";
+import { useProfileAppearance } from "./profile-appearance-provider";
 import { usePostMutations } from "./post-mutations-provider";
 import { NativLogo } from "./nativ-logo";
 import { ThemeToggle } from "./theme-toggle";
@@ -32,6 +33,8 @@ export function AppShell({
   children: ReactNode;
   adFree?: boolean;
 }) {
+  const { nameColor } = useProfileAppearance();
+
   return (
     <AdvertisingProvider adFree={adFree}>
       <div className="app-shell">
@@ -51,14 +54,10 @@ export function AppShell({
           <ThemeToggle />
           <Link className="user-pill user-profile-link" href="/profile">
             <span className="nav-avatar">{viewer.displayName?.slice(0, 2) ?? "NA"}</span>
-            <span>{viewer.displayName ?? viewer.username ?? "Guest"}</span>
-            {viewer.verified ? (
-              viewer.badge?.slug === "founder" ? (
-                <VerifiedSeal className="user-profile-verified-seal" label="Founder verified account" />
-              ) : (
-                <span className="verified-badge" aria-label="Verified account">✓</span>
-              )
-            ) : null}
+            <span style={{ color: profileNameColorStyles[nameColor] }}>
+              {viewer.displayName ?? viewer.username ?? "Guest"}
+            </span>
+            {viewer.verified ? <VerifiedSeal className="user-profile-verified-seal" label="Verified account" /> : null}
           </Link>
         </div>
         </header>
@@ -82,6 +81,7 @@ export function SocialShell({
   mode?: "following" | "discovery";
   followedUserIds?: Set<string>;
 }) {
+  const { nameColor } = useProfileAppearance();
   const isDiscovery = mode === "discovery";
   const [audience, setAudience] = useState<"all" | "people" | "communities">("all");
   const [contentType, setContentType] = useState<"all" | "text" | "photo" | "long-form">("all");
@@ -143,7 +143,8 @@ export function SocialShell({
         repostedBy: {
           id: viewer.id,
           displayName: viewer.displayName ?? viewer.username ?? "You",
-          avatar: viewer.displayName?.slice(0, 2) ?? "NA"
+          avatar: viewer.displayName?.slice(0, 2) ?? "NA",
+          verified: viewer.verified
         },
         originalPost
       }, ...posts];
@@ -251,7 +252,15 @@ export function SocialShell({
                 <Link className="prompt-teaser-link" href="/daily-prompts"><h3>{prompt.question}</h3></Link>
                 <p className="muted">{followedResponses.length} people you follow have answered.</p>
                 <div className="prompt-response-list">
-                  {promptResponses.map((response) => <p key={response.userId}><strong>{response.displayName}:</strong> &quot;{response.text}&quot;</p>)}
+                  {promptResponses.map((response) => (
+                    <p key={response.userId}>
+                      <strong style={response.userId === viewer.id ? { color: profileNameColorStyles[nameColor] } : undefined}>
+                        {response.displayName}
+                      </strong>
+                      {response.userId === viewer.id && viewer.verified ? <VerifiedSeal className="comment-verified-seal" /> : null}
+                      : &quot;{response.text}&quot;
+                    </p>
+                  ))}
                 </div>
                 <Link className="text-button" href="/daily-prompts">Answer today&apos;s prompt →</Link>
               </section>

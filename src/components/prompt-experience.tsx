@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
+import { useProfileAppearance } from "@/components/profile-appearance-provider";
 import { promptResponsePreviews, type DailyPrompt } from "@/lib/daily-prompt";
+import { profileNameColorStyles } from "@/lib/personalization";
+import { VerifiedSeal } from "@/components/verified-seal";
 
 export function PromptExperience({ prompt }: { prompt: DailyPrompt }) {
+  const { nameColor } = useProfileAppearance();
   const [photo, setPhoto] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
@@ -71,7 +75,13 @@ export function PromptExperience({ prompt }: { prompt: DailyPrompt }) {
             {promptResponsePreviews.map((response) => (
               <article key={response.userId} className="response-card">
                 <div className="avatar">{response.displayName.slice(0, 2).toUpperCase()}</div>
-                <div><strong>{response.displayName}</strong><p>{response.text}</p></div>
+                <div>
+                  <strong style={response.userId === "user-1" ? { color: profileNameColorStyles[nameColor] } : undefined}>
+                    {response.displayName}
+                  </strong>
+                  {response.userId === "user-1" ? <VerifiedSeal className="comment-verified-seal" /> : null}
+                  <p>{response.text}</p>
+                </div>
               </article>
             ))}
           </div>

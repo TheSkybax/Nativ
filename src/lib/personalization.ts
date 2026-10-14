@@ -190,6 +190,12 @@ export const profileNameColorOptions: readonly ProfileColorOption<NameColor>[] =
   { value: "sage", label: "One-Year Sage", swatch: "var(--profile-name-sage)", unlock: { method: "account-age", days: 365 } }
 ];
 
+export const profileNameColorStyles: Record<NameColor, string> = {
+  nativ: "var(--text-primary)",
+  gold: "var(--profile-name-gold)",
+  sage: "var(--profile-name-sage)"
+};
+
 const headerGradientNames: Record<BasicColorFamily, string> = {
   red: "Crimson Current",
   orange: "Citrus Ember",

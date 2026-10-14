@@ -2,6 +2,7 @@
 
 import { useEffect, useReducer, useRef, useState } from "react";
 import { BadgeIcon } from "@/components/badge-icon";
+import { useProfileAppearance } from "@/components/profile-appearance-provider";
 import { VerifiedSeal } from "@/components/verified-seal";
 import { FeedPostCard, type FeedPost } from "@/components/feed-post-card";
 import { usePostMutations } from "@/components/post-mutations-provider";
@@ -11,7 +12,6 @@ import {
   getProfileCosmeticStatus,
   getVisibleProfileCosmeticOptions,
   type BackgroundName,
-  type NameColor,
   type ProfileCosmeticEligibility,
   type ProfileCosmeticStatus,
   type ProfileCosmeticUnlock,
@@ -19,6 +19,7 @@ import {
   profileHeaderBackgroundOptions,
   profileNameColorOptions,
   profilePanelColorOptions,
+  profileNameColorStyles,
   type BadgeDefinition,
   type BadgeSlug,
   type ProfileColorOption,
@@ -43,12 +44,6 @@ type EarnedBadge = BadgeDefinition & { slug: BadgeSlug };
 type ProfilePostFilter = "posts" | "reposts" | "all";
 
 const PROFILE_POSTS_PAGE_SIZE = 5;
-
-const nameColors: Record<NameColor, string> = {
-  nativ: "var(--text-primary)",
-  gold: "var(--profile-name-gold)",
-  sage: "var(--profile-name-sage)"
-};
 
 const backgroundStyles: Record<BackgroundName, string> = {
   forest: "var(--profile-header-default-gradient)",
@@ -186,6 +181,7 @@ export function ProfileSpace({
   developerCosmeticsPreview: boolean;
   initialViewedAccountId?: string;
 }) {
+  const { nameColor: sharedNameColor, setNameColor: setSharedNameColor } = useProfileAppearance();
   const [viewedAccountId, setViewedAccountId] = useState(initialViewedAccountId ?? owner.id);
   const [followerCountExpanded, setFollowerCountExpanded] = useState(false);
   const [isCustomizing, setIsCustomizing] = useState(false);
@@ -240,9 +236,13 @@ export function ProfileSpace({
     earnedBadgeSlugs,
     accountAgeDays
   };
-  const displayCustomization = { ...profileCustomization, ...developerPreviewCustomization };
+  const displayCustomization = {
+    ...profileCustomization,
+    nameColor: sharedNameColor,
+    ...developerPreviewCustomization
+  };
   const bannerBackground = backgroundStyles[displayCustomization.background];
-  const nameColor = nameColors[displayCustomization.nameColor];
+  const nameColor = profileNameColorStyles[displayCustomization.nameColor];
 
   function chooseCosmetic<K extends keyof ProfileCustomization>(
     key: K,
@@ -287,7 +287,8 @@ export function ProfileSpace({
         repostedBy: {
           id: owner.id,
           displayName: account.displayName,
-          avatar: owner.avatar
+          avatar: owner.avatar,
+          verified: owner.verified
         },
         originalPost
       }, ...currentPosts];
@@ -613,7 +614,10 @@ export function ProfileSpace({
               >
                 <div className="customization-header-identity">
                   <span className="customization-preview-avatar">{account.avatar}</span>
-                  <strong style={{ color: nameColor }}>{account.displayName}</strong>
+                  <span className="customization-preview-name">
+                    <strong style={{ color: nameColor }}>{account.displayName}</strong>
+                    {account.verified ? <VerifiedSeal className="profile-verified-seal" /> : null}
+                  </span>
                 </div>
                 <div className="customization-header-actions" aria-hidden="true">
                   <span className="customization-preview-action">Edit profile</span>
@@ -646,7 +650,12 @@ export function ProfileSpace({
                     selected={displayCustomization.nameColor}
                     eligibility={cosmeticEligibility}
                     developerPreview={developerCosmeticsPreview && developerCatalogVisible}
-                    onSelect={(nameColor, status) => chooseCosmetic("nameColor", nameColor, status)}
+                    onSelect={(nameColor, status) => {
+                      chooseCosmetic("nameColor", nameColor, status);
+                      if (status === "available") {
+                        setSharedNameColor(nameColor);
+                      }
+                    }}
                   />
                   <ColorChoiceGroup
                     label="Profile header color and buttons"

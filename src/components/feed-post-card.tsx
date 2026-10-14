@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { useProfileAppearance } from "@/components/profile-appearance-provider";
+import { profileNameColorStyles } from "@/lib/personalization";
 import { getPopularTagSuggestions } from "@/lib/post-tag-suggestions";
 import { usePostMutations } from "./post-mutations-provider";
+import { VerifiedSeal } from "./verified-seal";
 
 export type FeedPost = {
   id: string;
@@ -23,7 +26,7 @@ export type FeedPost = {
   contentType?: "text" | "photo" | "video" | "long-form" | "poll";
   tags?: readonly string[];
   communityId?: string;
-  repostedBy?: { id: string; displayName: string; avatar: string };
+  repostedBy?: { id: string; displayName: string; avatar: string; verified?: boolean };
   originalPost?: FeedPost;
   // Reposts reference the original post; its visibility remains authoritative.
   originalVisibility?: string;
@@ -36,19 +39,20 @@ type MockComment = {
   username: string;
   avatar: string;
   text: string;
+  verified: boolean;
 };
 
 const commentsByPost: Record<string, MockComment[]> = {
   "post-1": [
-    { id: "comment-1", userId: "user-2", displayName: "Dragonfire", username: "dragonfire", avatar: "DF", text: "That's actually really interesting." },
-    { id: "comment-2", userId: "user-3", displayName: "Horizon", username: "horizon", avatar: "HO", text: "I was thinking the exact same thing." }
+    { id: "comment-1", userId: "user-2", displayName: "Dragonfire", username: "dragonfire", avatar: "DF", text: "That's actually really interesting.", verified: false },
+    { id: "comment-2", userId: "user-3", displayName: "Horizon", username: "horizon", avatar: "HO", text: "I was thinking the exact same thing.", verified: true }
   ],
   "post-2": [
-    { id: "comment-3", userId: "user-3", displayName: "Horizon", username: "horizon", avatar: "HO", text: "That sounds like a great reset." }
+    { id: "comment-3", userId: "user-3", displayName: "Horizon", username: "horizon", avatar: "HO", text: "That sounds like a great reset.", verified: true }
   ],
   "post-3": [
-    { id: "comment-4", userId: "user-2", displayName: "Dragonfire", username: "dragonfire", avatar: "DF", text: "Clear rules make such a difference." },
-    { id: "comment-5", userId: "user-1", displayName: "Calvin M.", username: "calvinm", avatar: "CM", text: "Exactly. Trust needs something people can see." }
+    { id: "comment-4", userId: "user-2", displayName: "Dragonfire", username: "dragonfire", avatar: "DF", text: "Clear rules make such a difference.", verified: false },
+    { id: "comment-5", userId: "user-1", displayName: "Calvin M.", username: "calvinm", avatar: "CM", text: "Exactly. Trust needs something people can see.", verified: true }
   ]
 };
 
@@ -67,6 +71,7 @@ export function FeedPostCard({
   canRepost?: boolean;
   viewerId?: string;
 }) {
+  const { nameColor } = useProfileAppearance();
   const { resolvePost, isDeleted, updatePost, deletePost } = usePostMutations();
   const currentPost = resolvePost(post);
   const [liked, setLiked] = useState(false);
@@ -119,11 +124,12 @@ export function FeedPostCard({
     if (!comment.trim()) return;
     setComments((current) => [...current, {
       id: `comment-${Date.now()}`,
-      userId: "user-1",
+      userId: viewerId ?? "user-1",
       displayName: "Calvin M.",
       username: "calvinm",
       avatar: "CM",
-      text: comment.trim()
+      text: comment.trim(),
+      verified: true
     }]);
     setComment("");
   }
@@ -132,7 +138,14 @@ export function FeedPostCard({
     return (
       <article className="post-card repost-card">
         <div className="post-topline">
-          <p className="repost-label"><span className="repost-icon" aria-hidden="true">↻</span> {currentPost.repostedBy.displayName} shared this post</p>
+          <p className="repost-label">
+            <span className="repost-icon" aria-hidden="true">↻</span>{" "}
+            <span style={currentPost.repostedBy.id === viewerId ? { color: profileNameColorStyles[nameColor] } : undefined}>
+              {currentPost.repostedBy.displayName}
+            </span>
+            {currentPost.repostedBy.id === viewerId && currentPost.repostedBy.verified ? <VerifiedSeal className="post-verified-seal" /> : null}
+            {" "}shared this post
+          </p>
         {isAuthor ? (
           <div className="post-owner-actions post-owner-actions-top">
             {confirmingDelete ? (
@@ -164,9 +177,11 @@ export function FeedPostCard({
         <div>
           <h3>
             <Link className="post-author-link" href={`/profile?user=${currentPost.authorId}`}>
-              {currentPost.author?.displayName ?? "Community member"}
+              <span style={currentPost.authorId === viewerId ? { color: profileNameColorStyles[nameColor] } : undefined}>
+                {currentPost.author?.displayName ?? "Community member"}
+              </span>
             </Link>
-            {currentPost.author?.verified ? <span className="verified-badge">✓</span> : null}
+            {currentPost.author?.verified ? <VerifiedSeal className="post-verified-seal" /> : null}
           </h3>
           <p className="post-timestamp">{new Date(currentPost.createdAt).toLocaleString(undefined, {
             month: "long",
@@ -279,7 +294,14 @@ export function FeedPostCard({
                   <div className="mini-avatar">{item.avatar}</div>
                 </Link>
                 <div>
-                  <Link className="comment-author" href={`/profile?user=${item.userId}`}>{item.displayName}</Link>
+                  <Link
+                    className="comment-author"
+                    href={`/profile?user=${item.userId}`}
+                    style={item.userId === viewerId ? { color: profileNameColorStyles[nameColor] } : undefined}
+                  >
+                    {item.displayName}
+                  </Link>
+                  {item.verified ? <VerifiedSeal className="comment-verified-seal" /> : null}
                   <Link className="muted comment-username" href={`/profile?user=${item.userId}`}>@{item.username}</Link>
                   <p>{item.text}</p>
                 </div>
