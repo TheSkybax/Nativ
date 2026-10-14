@@ -1,5 +1,5 @@
 import { SocialShell } from "@/components/social-shell";
-import { demoBlocks, demoDiscoveryPosts, demoFollowing, demoPosts, demoUsers } from "@/lib/demo-data";
+import { demoBlocks, demoDiscoveryPosts, demoFollowing, demoPosts, demoUsers, getDemoPrimaryBadge } from "@/lib/demo-data";
 import { buildDiscoveryFeed } from "@/lib/discovery-rules";
 
 export default function DiscoveryPage() {
@@ -36,7 +36,7 @@ export default function DiscoveryPage() {
 
   return (
     <SocialShell
-      viewer={{ id: viewer.id, username: "calvinm", displayName: "Calvin M.", verified: viewer.verified }}
+      viewer={{ id: viewer.id, username: "calvinm", displayName: "Calvin M.", verified: viewer.verified, badge: getDemoPrimaryBadge(viewer.id) }}
       feed={posts}
       discovery={posts}
       mode="discovery"

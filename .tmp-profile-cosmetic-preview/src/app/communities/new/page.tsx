@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { AppShell } from "@/components/social-shell";
+import { getDemoPrimaryBadge } from "@/lib/demo-data";
 
 export default function NewCommunityPage() {
   return (
-    <AppShell viewer={{ id: "user-1", username: "calvinm", displayName: "Calvin M.", verified: true }}>
+    <AppShell viewer={{ id: "user-1", username: "calvinm", displayName: "Calvin M.", verified: true, badge: getDemoPrimaryBadge("user-1") }}>
       <main className="community-create-page">
         <section className="panel community-create-panel">
           <Link className="back-link" href="/communities">← Communities</Link>

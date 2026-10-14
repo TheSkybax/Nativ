@@ -4,17 +4,20 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { getCurrentDailyPrompt, promptResponsePreviews } from "@/lib/daily-prompt";
+import type { BadgeDefinition } from "@/lib/personalization";
 import { AdvertisingProvider, SidebarAd, TopBannerAd } from "./banner-ad";
 import { DiscoveryFeed } from "./discovery-feed";
 import { FeedPostCard, type FeedPost } from "./feed-post-card";
 import { NativLogo } from "./nativ-logo";
 import { ThemeToggle } from "./theme-toggle";
+import { VerifiedSeal } from "./verified-seal";
 
 export type SocialViewer = {
   id: string;
   username?: string;
   displayName?: string;
   verified?: boolean;
+  badge?: BadgeDefinition;
 };
 
 const emptyFollowedUserIds = new Set<string>();
@@ -48,7 +51,13 @@ export function AppShell({
           <Link className="user-pill user-profile-link" href="/profile">
             <span className="nav-avatar">{viewer.displayName?.slice(0, 2) ?? "NA"}</span>
             <span>{viewer.displayName ?? viewer.username ?? "Guest"}</span>
-            {viewer.verified ? <span className="verified-badge">✓</span> : null}
+            {viewer.verified ? (
+              viewer.badge?.slug === "founder" ? (
+                <VerifiedSeal className="user-profile-verified-seal" label="Founder verified account" />
+              ) : (
+                <span className="verified-badge" aria-label="Verified account">✓</span>
+              )
+            ) : null}
           </Link>
         </div>
         </header>

@@ -1,4 +1,5 @@
 import type { BadgeSlug } from "@/lib/personalization";
+import { getProfileBadges } from "./personalization";
 
 export const demoUsers = [
   {
@@ -51,6 +52,23 @@ export const demoBadgeAssignments: Record<string, BadgeSlug[]> = {
   "user-2": ["first-conversation", "community-member", "first-prompt"]
 };
 export const demoBadgeAsOf = "2026-10-12T00:00:00Z";
+const demoPostCounts: Record<string, number> = { "user-1": 18, "user-2": 42 };
+
+export function getDemoPrimaryBadge(userId: string) {
+  const user = demoUsers.find((demoUser) => demoUser.id === userId);
+  if (!user) {
+    return undefined;
+  }
+
+  const earnedBadges = getProfileBadges({
+    createdAt: user.createdAt,
+    postCount: demoPostCounts[userId] ?? 0,
+    assignedBadgeSlugs: demoBadgeAssignments[userId],
+    now: new Date(demoBadgeAsOf)
+  });
+
+  return earnedBadges.find((badge) => badge.slug === "founder") ?? earnedBadges[0];
+}
 
 export const demoFollowing = new Set(["user-1", "user-2", "user-3"]);
 export const demoBlocks = new Set<string>();

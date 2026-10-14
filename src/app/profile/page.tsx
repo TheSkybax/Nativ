@@ -1,7 +1,7 @@
 import { AppShell } from "@/components/social-shell";
 import { ProfileSpace } from "@/components/profile-space";
 import { PageAdRails } from "@/components/page-ad-rails";
-import { demoBadgeAsOf, demoBadgeAssignments, demoProfileCustomization, demoUsers } from "@/lib/demo-data";
+import { demoBadgeAsOf, demoBadgeAssignments, demoProfileCustomization, demoUsers, getDemoPrimaryBadge } from "@/lib/demo-data";
 import {
   buildProfileCustomization,
   getAccountAgeDays,
@@ -47,7 +47,7 @@ export default async function ProfilePage({
     now: demoNow
   });
   return (
-    <AppShell viewer={{ id: owner.id, username: owner.username, displayName: owner.displayName, verified: owner.verified }}>
+    <AppShell viewer={{ id: owner.id, username: owner.username, displayName: owner.displayName, verified: owner.verified, badge: getDemoPrimaryBadge(owner.id) }}>
       <PageAdRails>
         <ProfileSpace
           owner={owner}

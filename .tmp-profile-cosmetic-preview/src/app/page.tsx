@@ -1,4 +1,4 @@
-import { demoBlocks, demoFollowing, demoPosts, demoUsers } from "@/lib/demo-data";
+import { demoBlocks, demoFollowing, demoPosts, demoUsers, getDemoPrimaryBadge } from "@/lib/demo-data";
 import { buildDiscoveryFeed } from "@/lib/discovery-rules";
 import { getChronologicalFollowingFeed } from "@/lib/social-rules";
 import { SocialShell } from "@/components/social-shell";
@@ -8,7 +8,8 @@ export default function HomePage() {
     id: "user-1",
     username: "calvinm",
     displayName: "Calvin M.",
-    verified: true
+    verified: true,
+    badge: getDemoPrimaryBadge("user-1")
   };
 
   const feed = getChronologicalFollowingFeed(demoPosts, {

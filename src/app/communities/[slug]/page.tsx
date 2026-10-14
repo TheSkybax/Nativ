@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/social-shell";
 import { PageAdRails } from "@/components/page-ad-rails";
 import { demoCommunities } from "@/lib/communities";
+import { getDemoPrimaryBadge } from "@/lib/demo-data";
 
 export function generateStaticParams() {
   return demoCommunities.map((community) => ({ slug: community.slug }));
@@ -21,7 +22,7 @@ export default async function CommunityPage({
   }
 
   return (
-    <AppShell viewer={{ id: "user-1", username: "calvinm", displayName: "Calvin M.", verified: true }}>
+    <AppShell viewer={{ id: "user-1", username: "calvinm", displayName: "Calvin M.", verified: true, badge: getDemoPrimaryBadge("user-1") }}>
       <PageAdRails>
         <main className="community-space-page">
       <section className="community-space-hero">
