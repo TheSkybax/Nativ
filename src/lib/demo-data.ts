@@ -42,7 +42,7 @@ export const demoUsers = [
 export const demoProfileCustomization = {
   theme: "aurora",
   background: "forest",
-  nameColor: "sunset",
+  nameColor: "nativ",
   musicMood: "ambient"
 } as const;
 

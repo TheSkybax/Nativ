@@ -1,9 +1,19 @@
 "use client";
 
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { BadgeIcon } from "@/components/badge-icon";
-import type { BadgeDefinition } from "@/lib/personalization";
-import type { ProfileCustomization } from "@/lib/personalization";
+import {
+  getBadge,
+  isProfileColorUnlocked,
+  profileCardsColorOptions,
+  profileHeaderBackgroundOptions,
+  profileNameColorOptions,
+  profilePanelColorOptions,
+  type BadgeDefinition,
+  type BadgeSlug,
+  type ProfileColorOption,
+  type ProfileCustomization
+} from "@/lib/personalization";
 import { createProfileEditState, profileEditReducer } from "@/lib/profile-edit";
 
 type ProfileAccount = {
@@ -19,20 +29,76 @@ type ProfileAccount = {
   posts: number;
 };
 
+type EarnedBadge = BadgeDefinition & { slug: BadgeSlug };
+
 const nameColors = {
-  sunset: "var(--brand-teal-bright)",
+  nativ: "var(--text-primary)",
+  sunset: "#ffbd7d",
   ocean: "var(--brand-sky)",
-  rose: "var(--brand-teal-bright)",
-  forest: "var(--brand-teal)",
-  gold: "var(--brand-teal-soft)"
+  rose: "#f2a4c3",
+  forest: "#a4eadb",
+  gold: "#f2d27b"
 };
 
 const backgroundStyles = {
   forest: "linear-gradient(135deg, var(--brand-midnight) 0%, var(--brand-teal-deep) 100%)",
-  sunset: "linear-gradient(135deg, var(--brand-navy) 0%, var(--brand-teal) 100%)",
+  sunset: "linear-gradient(135deg, #432a46 0%, #a34e62 100%)",
   aurora: "linear-gradient(135deg, var(--brand-midnight) 0%, var(--brand-slate-light) 100%)",
-  lavender: "linear-gradient(135deg, var(--brand-navy) 0%, var(--brand-teal-soft) 100%)"
+  lavender: "linear-gradient(135deg, var(--brand-navy) 0%, var(--brand-teal-soft) 100%)",
+  founder: "linear-gradient(135deg, #382a1c 0%, #92703a 100%)"
 };
+
+function ColorChoiceGroup<T extends string>({
+  label,
+  options,
+  selected,
+  earnedBadgeSlugs,
+  onSelect
+}: {
+  label: string;
+  options: readonly ProfileColorOption<T>[];
+  selected: T;
+  earnedBadgeSlugs: readonly BadgeSlug[];
+  onSelect: (value: T) => void;
+}) {
+  return (
+    <fieldset className="customization-color-group">
+      <legend>{label}</legend>
+      <div className="customization-color-options">
+        {options.map((option) => {
+          const unlocked = isProfileColorUnlocked(option, earnedBadgeSlugs);
+          return (
+            <button
+              key={option.value}
+              className="customization-color-option"
+              type="button"
+              aria-label={`${option.label}${option.unlockBadge ? `; requires ${getBadge(option.unlockBadge).label}` : ""}`}
+              aria-pressed={selected === option.value}
+              disabled={!unlocked}
+              onClick={() => onSelect(option.value)}
+            >
+              <span className="customization-color-swatch" style={{ background: option.swatch }} aria-hidden="true" />
+              <span>{option.label}</span>
+              {option.unlockBadge && !unlocked ? <small>Unlock: {getBadge(option.unlockBadge).label}</small> : null}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+function getSelectedOptionLabel<T extends string>(
+  options: readonly ProfileColorOption<T>[],
+  value: T
+) {
+  const option = options.find((item) => item.value === value);
+  if (!option) {
+    throw new Error(`No customization label found for "${value}".`);
+  }
+
+  return option.label;
+}
 
 export function ProfileSpace({
   owner,
@@ -45,12 +111,15 @@ export function ProfileSpace({
   owner: ProfileAccount;
   visitor: ProfileAccount;
   customization: ProfileCustomization;
-  badges: BadgeDefinition[];
-  visitorBadges: BadgeDefinition[];
+  badges: EarnedBadge[];
+  visitorBadges: EarnedBadge[];
   initialViewedAccountId?: string;
 }) {
   const [viewedAccountId, setViewedAccountId] = useState(initialViewedAccountId ?? owner.id);
   const [followerCountExpanded, setFollowerCountExpanded] = useState(false);
+  const [isCustomizing, setIsCustomizing] = useState(false);
+  const [profileCustomization, setProfileCustomization] = useState(customization);
+  const customizationPanelRef = useRef<HTMLElement | null>(null);
   const [activeBadgeSlug, setActiveBadgeSlug] = useState<string | null>(null);
   const [isBadgePopupClosing, setIsBadgePopupClosing] = useState(false);
   const [profileEdit, dispatchProfileEdit] = useReducer(
@@ -73,8 +142,20 @@ export function ProfileSpace({
     ? badges
     : displayedBadges;
   const activeBadge = earnedBadges.find((badge) => badge.slug === activeBadgeSlug);
-  const bannerBackground = backgroundStyles[customization.background];
-  const nameColor = nameColors[customization.nameColor];
+  const bannerBackground = backgroundStyles[profileCustomization.background];
+  const nameColor = nameColors[profileCustomization.nameColor];
+  const earnedBadgeSlugs = earnedBadges.map((badge) => badge.slug);
+  const customizationSummary = [
+    { name: getSelectedOptionLabel(profileHeaderBackgroundOptions, profileCustomization.background), descriptor: "theme" },
+    { name: getSelectedOptionLabel(profilePanelColorOptions, profileCustomization.profilePanelColor), descriptor: "profile" },
+    { name: getSelectedOptionLabel(profileCardsColorOptions, profileCustomization.profileCardsColor), descriptor: "panels" }
+  ];
+
+  useEffect(() => {
+    if (isCustomizing) {
+      customizationPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [isCustomizing]);
 
   useEffect(() => {
     if (!activeBadgeSlug) {
@@ -122,8 +203,12 @@ export function ProfileSpace({
         <button className={!isOwner ? "active" : ""} type="button" onClick={() => setViewedAccountId(visitor.id)}>Another profile</button>
       </div>
 
-      <section className="profile-panel panel">
-        <div className="profile-banner" style={{ background: bannerBackground }}>
+      <section className="profile-panel panel" data-profile-color={profileCustomization.profilePanelColor}>
+        <div
+          className="profile-banner"
+          data-profile-header-theme={profileCustomization.background}
+          style={{ background: bannerBackground }}
+        >
           <div className="profile-header">
             <div className="avatar large">{account.avatar}</div>
             <div className="profile-heading-copy">
@@ -154,7 +239,15 @@ export function ProfileSpace({
                   ) : (
                     <button className="profile-action light-action" type="button" onClick={() => dispatchProfileEdit({ type: "open" })}>Edit profile</button>
                   )}
-                  <button className="profile-action light-action" type="button">Customize</button>
+                  <button
+                    className="profile-action light-action"
+                    type="button"
+                    aria-expanded={isCustomizing}
+                    aria-controls="profile-customization"
+                    onClick={() => setIsCustomizing((open) => !open)}
+                  >
+                    {isCustomizing ? "Done customizing" : "Customize"}
+                  </button>
                 </>
               ) : (
                 <>
@@ -201,7 +294,7 @@ export function ProfileSpace({
         )}
 
         <div className="profile-content-grid">
-          <section className="profile-about-card panel dark-panel">
+          <section className="profile-about-card panel dark-panel" data-profile-color={profileCustomization.profileCardsColor}>
             <div className="profile-section-heading"><h2>About</h2>{isOwner && editing ? <span className="tag">Editing</span> : null}</div>
             {isOwner && editing ? (
               <>
@@ -235,7 +328,7 @@ export function ProfileSpace({
             {isOwner && customization.musicMood !== "none" ? <div className="music-control"><span>♫</span><span>{customization.musicMood} profile music</span><button type="button" aria-label="Play profile music">▶</button></div> : null}
           </section>
 
-          <section className="profile-badges-card panel dark-panel">
+          <section className="profile-badges-card panel dark-panel" data-profile-color={profileCustomization.profileCardsColor}>
             <div className="profile-section-heading">
               <h2>Badges</h2>
               <span className="muted">{earnedBadges.length} Total Badges</span>
@@ -288,12 +381,79 @@ export function ProfileSpace({
         </div>
 
         {isOwner ? (
-          <section className="profile-customization panel dark-panel">
-            <div className="profile-section-heading"><div><p className="eyebrow">Your look</p><h2>Customization</h2></div><span className="muted">Earned and chosen</span></div>
-            <div className="customization-preview-row">
-              <div className="customization-swatch" style={{ background: customization.style.gradient }}><span style={{ color: nameColor }}>{account.displayName}</span></div>
-              <div><strong>{customization.style.label} theme</strong><p className="muted">{customization.background} background · {customization.musicMood} music</p></div>
+          <section
+            className={`profile-customization panel dark-panel${isCustomizing ? " is-customizing" : ""}`}
+            id="profile-customization"
+            data-profile-color={profileCustomization.profilePanelColor}
+            ref={customizationPanelRef}
+          >
+            <div className="profile-section-heading">
+              <div><p className="eyebrow">Your look</p><h2>Customization</h2></div>
+              <div className="customization-heading-actions">
+                <span className="muted">Earned and chosen</span>
+                {isCustomizing ? (
+                  <button className="profile-action light-action customization-save" type="button" onClick={() => setIsCustomizing(false)}>
+                    Save
+                  </button>
+                ) : null}
+              </div>
             </div>
+            <div className="customization-preview-row">
+              <div
+                className="customization-header-preview"
+                data-profile-header-theme={profileCustomization.background}
+                style={{ background: bannerBackground }}
+              >
+                <div className="customization-header-identity">
+                  <span className="customization-preview-avatar">{account.avatar}</span>
+                  <strong style={{ color: nameColor }}>{account.displayName}</strong>
+                </div>
+                <div className="customization-header-actions" aria-hidden="true">
+                  <span className="customization-preview-action">Edit profile</span>
+                  <span className="customization-preview-action">Customize</span>
+                </div>
+              </div>
+              <div className="customization-selection-summary">
+                {customizationSummary.map(({ name, descriptor }) => (
+                  <span key={descriptor}><strong>{name}</strong> {descriptor}</span>
+                ))}
+              </div>
+            </div>
+            {isCustomizing ? (
+              <>
+                <div className="customization-color-groups">
+                  <ColorChoiceGroup
+                    label="Profile name"
+                    options={profileNameColorOptions}
+                    selected={profileCustomization.nameColor}
+                    earnedBadgeSlugs={earnedBadgeSlugs}
+                    onSelect={(nameColor) => setProfileCustomization((current) => ({ ...current, nameColor }))}
+                  />
+                  <ColorChoiceGroup
+                    label="Profile header gradient and buttons"
+                    options={profileHeaderBackgroundOptions}
+                    selected={profileCustomization.background}
+                    earnedBadgeSlugs={earnedBadgeSlugs}
+                    onSelect={(background) => setProfileCustomization((current) => ({ ...current, background }))}
+                  />
+                  <ColorChoiceGroup
+                    label="Main profile panel"
+                    options={profilePanelColorOptions}
+                    selected={profileCustomization.profilePanelColor}
+                    earnedBadgeSlugs={earnedBadgeSlugs}
+                    onSelect={(profilePanelColor) => setProfileCustomization((current) => ({ ...current, profilePanelColor }))}
+                  />
+                  <ColorChoiceGroup
+                    label="About and Badges panels"
+                    options={profileCardsColorOptions}
+                    selected={profileCustomization.profileCardsColor}
+                    earnedBadgeSlugs={earnedBadgeSlugs}
+                    onSelect={(profileCardsColor) => setProfileCustomization((current) => ({ ...current, profileCardsColor }))}
+                  />
+                </div>
+                <p className="customization-demo-note">Badge-locked colors use this demo profile’s earned badges. Changes reset when the page is refreshed.</p>
+              </>
+            ) : null}
           </section>
         ) : null}
       </section>

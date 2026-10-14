@@ -13,7 +13,12 @@ import {
   getPostMilestoneBadges,
   getProfileBadges,
   getThemeStyle,
-  isHealthyBadgeSystem
+  isHealthyBadgeSystem,
+  isProfileColorUnlocked,
+  profileCardsColorOptions,
+  profileHeaderBackgroundOptions,
+  profileNameColorOptions,
+  profilePanelColorOptions
 } from "./personalization";
 
 describe("phase 2 personalization", () => {
@@ -83,15 +88,44 @@ describe("phase 2 personalization", () => {
 
   it("creates a profile customization package with user values", () => {
     const profile = buildProfileCustomization({
-      nameColor: "sunset",
+      nameColor: "gold",
+      profilePanelColor: "midnight",
+      profileCardsColor: "plum",
       theme: "aurora",
       background: "forest",
       musicMood: "ambient"
     });
 
-    expect(profile.nameColor).toBe("sunset");
+    expect(profile.nameColor).toBe("gold");
+    expect(profile.profilePanelColor).toBe("midnight");
+    expect(profile.profileCardsColor).toBe("plum");
     expect(profile.theme).toBe("aurora");
     expect(profile.background).toBe("forest");
+  });
+
+  it("uses the original white Nativ name color as the default option", () => {
+    expect(buildProfileCustomization().nameColor).toBe("nativ");
+    expect(buildProfileCustomization().background).toBe("forest");
+    expect(profileNameColorOptions.find((option) => option.value === "nativ")).toMatchObject({
+      label: "Nativ",
+      swatch: "#ffffff"
+    });
+    expect(profileHeaderBackgroundOptions.every((option) => option.swatch.startsWith("linear-gradient("))).toBe(true);
+    expect(profileHeaderBackgroundOptions.find((option) => option.value === "founder")?.unlockBadge).toBe("founder");
+  });
+
+  it("defaults profile colors and gates special palettes behind their matching badges", () => {
+    const profile = buildProfileCustomization();
+    expect(profile.profilePanelColor).toBe("default");
+    expect(profile.profileCardsColor).toBe("default");
+    expect(profileNameColorOptions.find((option) => option.value === "gold")?.unlockBadge).toBe("founder");
+    expect(profilePanelColorOptions.find((option) => option.value === "midnight")?.unlockBadge).toBe("founding-member");
+    expect(profileCardsColorOptions.find((option) => option.value === "plum")?.unlockBadge).toBe("early-supporter");
+
+    const goldOption = profileNameColorOptions.find((option) => option.value === "gold");
+    expect(goldOption && isProfileColorUnlocked(goldOption, [])).toBe(false);
+    expect(goldOption && isProfileColorUnlocked(goldOption, ["founder"])).toBe(true);
+    expect(isProfileColorUnlocked(profilePanelColorOptions[1], [])).toBe(true);
   });
 
   it("keeps badge mechanics healthy and non-addictive", () => {

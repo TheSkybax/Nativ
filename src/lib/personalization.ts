@@ -1,10 +1,14 @@
 export type ThemeName = "forest" | "aurora" | "midnight" | "sunset" | "lilac";
-export type BackgroundName = "forest" | "sunset" | "aurora" | "lavender";
+export type BackgroundName = "forest" | "sunset" | "aurora" | "lavender" | "founder";
 export type MusicMood = "ambient" | "indie" | "lofi" | "acoustic" | "none";
-export type NameColor = "sunset" | "ocean" | "rose" | "forest" | "gold";
+export type NameColor = "nativ" | "sunset" | "ocean" | "rose" | "forest" | "gold";
+export type ProfilePanelColor = "default" | "ocean" | "forest" | "rose" | "midnight";
+export type ProfileCardsColor = "default" | "ocean" | "forest" | "rose" | "plum";
 
 export type ProfileCustomization = {
   nameColor: NameColor;
+  profilePanelColor: ProfilePanelColor;
+  profileCardsColor: ProfileCardsColor;
   theme: ThemeName;
   background: BackgroundName;
   musicMood: MusicMood;
@@ -137,6 +141,53 @@ export const badgeCatalog = [
 export type BadgeSlug = (typeof badgeCatalog)[number]["slug"];
 type CatalogBadge = (typeof badgeCatalog)[number];
 
+export type ProfileColorOption<T extends string> = {
+  value: T;
+  label: string;
+  swatch: string;
+  unlockBadge?: BadgeSlug;
+};
+
+export const profileNameColorOptions: readonly ProfileColorOption<NameColor>[] = [
+  { value: "nativ", label: "Nativ", swatch: "#ffffff" },
+  { value: "sunset", label: "Sunset", swatch: "#ffbd7d" },
+  { value: "ocean", label: "Ocean", swatch: "#92c8df" },
+  { value: "rose", label: "Rose", swatch: "#f2a4c3" },
+  { value: "forest", label: "Forest", swatch: "#a4eadb" },
+  { value: "gold", label: "Founder Gold", swatch: "#f2d27b", unlockBadge: "founder" }
+];
+
+export const profileHeaderBackgroundOptions: readonly ProfileColorOption<BackgroundName>[] = [
+  { value: "forest", label: "Nativ", swatch: "linear-gradient(135deg, var(--brand-midnight), var(--brand-teal-deep))" },
+  { value: "sunset", label: "Sunset", swatch: "linear-gradient(135deg, #432a46, #a34e62)" },
+  { value: "aurora", label: "Aurora", swatch: "linear-gradient(135deg, var(--brand-midnight), var(--brand-slate-light))" },
+  { value: "lavender", label: "Lavender", swatch: "linear-gradient(135deg, var(--brand-navy), var(--brand-teal-soft))" },
+  { value: "founder", label: "Founder Gold", swatch: "linear-gradient(135deg, #382a1c, #92703a)", unlockBadge: "founder" }
+];
+
+export const profilePanelColorOptions: readonly ProfileColorOption<ProfilePanelColor>[] = [
+  { value: "default", label: "Nativ", swatch: "var(--surface-primary)" },
+  { value: "ocean", label: "Ocean", swatch: "#34758f" },
+  { value: "forest", label: "Forest", swatch: "#46735d" },
+  { value: "rose", label: "Rose", swatch: "#835b71" },
+  { value: "midnight", label: "Founding Midnight", swatch: "#365276", unlockBadge: "founding-member" }
+];
+
+export const profileCardsColorOptions: readonly ProfileColorOption<ProfileCardsColor>[] = [
+  { value: "default", label: "Nativ", swatch: "var(--surface-secondary)" },
+  { value: "ocean", label: "Ocean", swatch: "#347c7c" },
+  { value: "forest", label: "Forest", swatch: "#53775d" },
+  { value: "rose", label: "Rose", swatch: "#865d75" },
+  { value: "plum", label: "Supporter Plum", swatch: "#735e94", unlockBadge: "early-supporter" }
+];
+
+export function isProfileColorUnlocked(
+  option: ProfileColorOption<string>,
+  earnedBadgeSlugs: readonly BadgeSlug[]
+) {
+  return !option.unlockBadge || earnedBadgeSlugs.includes(option.unlockBadge);
+}
+
 export const badgeEligibility: Record<BadgeSlug, BadgeEligibilityRule> = {
   "early-member": { basis: "join-date", cutoff: EARLY_MEMBER_CUTOFF_DATE, note: "Boilerplate cutoff; replace with the actual launch cutoff." },
   "one-year": { basis: "join-date", threshold: 1 },
@@ -169,11 +220,15 @@ export function getThemeStyle(theme: ThemeName) {
 export function buildProfileCustomization(input: Partial<ProfileCustomization> = {}): ProfileCustomization {
   const theme = input.theme ?? "aurora";
   const background = input.background ?? "forest";
-  const nameColor = input.nameColor ?? "sunset";
+  const nameColor = input.nameColor ?? "nativ";
+  const profilePanelColor = input.profilePanelColor ?? "default";
+  const profileCardsColor = input.profileCardsColor ?? "default";
   const musicMood = input.musicMood ?? "ambient";
 
   return {
     nameColor,
+    profilePanelColor,
+    profileCardsColor,
     theme,
     background,
     musicMood,
