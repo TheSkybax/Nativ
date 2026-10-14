@@ -7,7 +7,7 @@ import { useProfileAppearance } from "@/components/profile-appearance-provider";
 import { profileNameColorStyles } from "@/lib/personalization";
 import { getPopularTagSuggestions } from "@/lib/post-tag-suggestions";
 import { usePostMutations } from "./post-mutations-provider";
-import { VerifiedSeal } from "./verified-seal";
+import { VerifiedSeal, type VerificationSealVariant } from "./verified-seal";
 
 export type FeedPost = {
   id: string;
@@ -20,13 +20,14 @@ export type FeedPost = {
     displayName?: string;
     username?: string;
     verified?: boolean;
+    verificationType?: VerificationSealVariant;
     avatar?: string;
   };
   discoveryScore?: number;
   contentType?: "text" | "photo" | "video" | "long-form" | "poll";
   tags?: readonly string[];
   communityId?: string;
-  repostedBy?: { id: string; displayName: string; avatar: string; verified?: boolean };
+  repostedBy?: { id: string; displayName: string; avatar: string; verified?: boolean; verificationType?: VerificationSealVariant };
   originalPost?: FeedPost;
   // Reposts reference the original post; its visibility remains authoritative.
   originalVisibility?: string;
@@ -40,19 +41,20 @@ type MockComment = {
   avatar: string;
   text: string;
   verified: boolean;
+  verificationType?: VerificationSealVariant;
 };
 
 const commentsByPost: Record<string, MockComment[]> = {
   "post-1": [
     { id: "comment-1", userId: "user-2", displayName: "Dragonfire", username: "dragonfire", avatar: "DF", text: "That's actually really interesting.", verified: false },
-    { id: "comment-2", userId: "user-3", displayName: "Horizon", username: "horizon", avatar: "HO", text: "I was thinking the exact same thing.", verified: true }
+    { id: "comment-2", userId: "user-3", displayName: "Horizon", username: "horizon", avatar: "HO", text: "I was thinking the exact same thing.", verified: true, verificationType: "standard" }
   ],
   "post-2": [
-    { id: "comment-3", userId: "user-3", displayName: "Horizon", username: "horizon", avatar: "HO", text: "That sounds like a great reset.", verified: true }
+    { id: "comment-3", userId: "user-3", displayName: "Horizon", username: "horizon", avatar: "HO", text: "That sounds like a great reset.", verified: true, verificationType: "standard" }
   ],
   "post-3": [
     { id: "comment-4", userId: "user-2", displayName: "Dragonfire", username: "dragonfire", avatar: "DF", text: "Clear rules make such a difference.", verified: false },
-    { id: "comment-5", userId: "user-1", displayName: "Calvin M.", username: "calvinm", avatar: "CM", text: "Exactly. Trust needs something people can see.", verified: true }
+    { id: "comment-5", userId: "user-1", displayName: "Calvin M.", username: "calvinm", avatar: "CM", text: "Exactly. Trust needs something people can see.", verified: true, verificationType: "founder" }
   ]
 };
 
@@ -62,7 +64,8 @@ export function FeedPostCard({
   showDiscoveryScore = false,
   onRepost,
   canRepost = true,
-  viewerId
+  viewerId,
+  viewerVerificationType = "standard"
 }: {
   post: FeedPost;
   footer?: ReactNode;
@@ -70,6 +73,7 @@ export function FeedPostCard({
   onRepost?: (post: FeedPost) => void;
   canRepost?: boolean;
   viewerId?: string;
+  viewerVerificationType?: VerificationSealVariant;
 }) {
   const { nameColor } = useProfileAppearance();
   const { resolvePost, isDeleted, updatePost, deletePost } = usePostMutations();
@@ -129,7 +133,8 @@ export function FeedPostCard({
       username: "calvinm",
       avatar: "CM",
       text: comment.trim(),
-      verified: true
+      verified: true,
+      verificationType: viewerVerificationType
     }]);
     setComment("");
   }
@@ -143,7 +148,9 @@ export function FeedPostCard({
             <span style={currentPost.repostedBy.id === viewerId ? { color: profileNameColorStyles[nameColor] } : undefined}>
               {currentPost.repostedBy.displayName}
             </span>
-            {currentPost.repostedBy.id === viewerId && currentPost.repostedBy.verified ? <VerifiedSeal className="post-verified-seal" /> : null}
+            {currentPost.repostedBy.id === viewerId && currentPost.repostedBy.verified ? (
+              <VerifiedSeal className="post-verified-seal" variant={currentPost.repostedBy.verificationType ?? viewerVerificationType} />
+            ) : null}
             {" "}shared this post
           </p>
         {isAuthor ? (
@@ -161,7 +168,7 @@ export function FeedPostCard({
         ) : null}
         </div>
         <div className="repost-nested-card">
-          <FeedPostCard post={currentPost.originalPost} showDiscoveryScore={showDiscoveryScore} onRepost={onRepost} canRepost={false} viewerId={viewerId} />
+          <FeedPostCard post={currentPost.originalPost} showDiscoveryScore={showDiscoveryScore} onRepost={onRepost} canRepost={false} viewerId={viewerId} viewerVerificationType={viewerVerificationType} />
         </div>
       </article>
     );
@@ -181,7 +188,7 @@ export function FeedPostCard({
                 {currentPost.author?.displayName ?? "Community member"}
               </span>
             </Link>
-            {currentPost.author?.verified ? <VerifiedSeal className="post-verified-seal" /> : null}
+            {currentPost.author?.verified ? <VerifiedSeal className="post-verified-seal" variant={currentPost.author.verificationType ?? "standard"} /> : null}
           </h3>
           <p className="post-timestamp">{new Date(currentPost.createdAt).toLocaleString(undefined, {
             month: "long",
@@ -301,7 +308,7 @@ export function FeedPostCard({
                   >
                     {item.displayName}
                   </Link>
-                  {item.verified ? <VerifiedSeal className="comment-verified-seal" /> : null}
+                  {item.verified ? <VerifiedSeal className="comment-verified-seal" variant={item.verificationType ?? "standard"} /> : null}
                   <Link className="muted comment-username" href={`/profile?user=${item.userId}`}>@{item.username}</Link>
                   <p>{item.text}</p>
                 </div>

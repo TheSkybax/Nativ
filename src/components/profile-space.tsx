@@ -26,12 +26,14 @@ import {
   type ProfileCustomization
 } from "@/lib/personalization";
 import { createProfileEditState, profileEditReducer } from "@/lib/profile-edit";
+import type { VerificationSealVariant } from "./verified-seal";
 
 type ProfileAccount = {
   id: string;
   username: string;
   displayName: string;
   verified: boolean;
+  verificationType?: VerificationSealVariant;
   bio: string;
   avatar: string;
   followers: number;
@@ -288,7 +290,8 @@ export function ProfileSpace({
           id: owner.id,
           displayName: account.displayName,
           avatar: owner.avatar,
-          verified: owner.verified
+          verified: owner.verified,
+          verificationType: owner.verificationType
         },
         originalPost
       }, ...currentPosts];
@@ -360,7 +363,7 @@ export function ProfileSpace({
               <h1 style={{ color: isOwner ? nameColor : "var(--text-primary)" }}>
                 <span className="profile-display-name">{account.displayName}</span>
                 {account.verified ? (
-                  <VerifiedSeal className="profile-verified-seal" />
+                  <VerifiedSeal className="profile-verified-seal" variant={account.verificationType ?? "standard"} />
                 ) : null}
               </h1>
               <p className="light-text">@{account.username}</p>
@@ -568,7 +571,13 @@ export function ProfileSpace({
             </div>
             <div className="feed-stack">
               {visibleProfilePosts.map((post) => (
-                <FeedPostCard key={post.id} post={post} onRepost={repostProfilePost} viewerId={owner.id} />
+                <FeedPostCard
+                  key={post.id}
+                  post={post}
+                  onRepost={repostProfilePost}
+                  viewerId={owner.id}
+                  viewerVerificationType={owner.verificationType ?? "standard"}
+                />
               ))}
             </div>
             {hasMoreProfilePosts ? (
@@ -616,7 +625,7 @@ export function ProfileSpace({
                   <span className="customization-preview-avatar">{account.avatar}</span>
                   <span className="customization-preview-name">
                     <strong style={{ color: nameColor }}>{account.displayName}</strong>
-                    {account.verified ? <VerifiedSeal className="profile-verified-seal" /> : null}
+                    {account.verified ? <VerifiedSeal className="profile-verified-seal" variant={account.verificationType ?? "standard"} /> : null}
                   </span>
                 </div>
                 <div className="customization-header-actions" aria-hidden="true">

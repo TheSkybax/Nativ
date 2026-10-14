@@ -36,7 +36,7 @@ export default function DiscoveryPage() {
 
   return (
     <SocialShell
-      viewer={{ id: viewer.id, username: "calvinm", displayName: "Calvin M.", verified: viewer.verified, badge: getDemoPrimaryBadge(viewer.id) }}
+      viewer={{ id: viewer.id, username: "calvinm", displayName: "Calvin M.", verified: viewer.verified, verificationType: "founder", badge: getDemoPrimaryBadge(viewer.id) }}
       feed={posts}
       discovery={posts}
       mode="discovery"

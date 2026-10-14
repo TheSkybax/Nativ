@@ -2,8 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import { FeedPostCard, type FeedPost } from "./feed-post-card";
+import type { VerificationSealVariant } from "./verified-seal";
 
-export function DiscoveryFeed({ posts, viewerId }: { posts: FeedPost[]; viewerId: string }) {
+export function DiscoveryFeed({
+  posts,
+  viewerId,
+  viewerVerificationType = "standard"
+}: {
+  posts: FeedPost[];
+  viewerId: string;
+  viewerVerificationType?: VerificationSealVariant;
+}) {
   const [visibleCount, setVisibleCount] = useState(3);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const visiblePosts = Array.from({ length: visibleCount }, (_, index) => posts[index % posts.length]);
@@ -39,6 +48,7 @@ export function DiscoveryFeed({ posts, viewerId }: { posts: FeedPost[]; viewerId
           post={post}
           showDiscoveryScore
           viewerId={viewerId}
+          viewerVerificationType={viewerVerificationType}
         />
       ))}
       <div ref={loadMoreRef} className="load-more-status" aria-live="polite">

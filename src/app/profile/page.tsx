@@ -54,7 +54,7 @@ export default async function ProfilePage({
     now: demoNow
   });
   return (
-    <AppShell viewer={{ id: owner.id, username: owner.username, displayName: owner.displayName, verified: owner.verified, badge: getDemoPrimaryBadge(owner.id) }}>
+    <AppShell viewer={{ id: owner.id, username: owner.username, displayName: owner.displayName, verified: owner.verified, verificationType: owner.verificationType, badge: getDemoPrimaryBadge(owner.id) }}>
       <PageAdRails>
         <ProfileSpace
           owner={owner}

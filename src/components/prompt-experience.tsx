@@ -79,7 +79,7 @@ export function PromptExperience({ prompt }: { prompt: DailyPrompt }) {
                   <strong style={response.userId === "user-1" ? { color: profileNameColorStyles[nameColor] } : undefined}>
                     {response.displayName}
                   </strong>
-                  {response.userId === "user-1" ? <VerifiedSeal className="comment-verified-seal" /> : null}
+                  {response.userId === "user-1" ? <VerifiedSeal className="comment-verified-seal" variant="founder" /> : null}
                   <p>{response.text}</p>
                 </div>
               </article>

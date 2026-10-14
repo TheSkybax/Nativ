@@ -43,7 +43,7 @@ export function VerifiedSeal({
   const style = sealStyles[variant];
 
   return (
-    <svg className={className} viewBox="0 0 24 24" role="img" aria-label={label}>
+    <svg className={className} viewBox="0 0 24 24" role="img" aria-label={label ?? style.label}>
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor={style.highlight} />

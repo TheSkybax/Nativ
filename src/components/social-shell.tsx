@@ -12,13 +12,14 @@ import { useProfileAppearance } from "./profile-appearance-provider";
 import { usePostMutations } from "./post-mutations-provider";
 import { NativLogo } from "./nativ-logo";
 import { ThemeToggle } from "./theme-toggle";
-import { VerifiedSeal } from "./verified-seal";
+import { VerifiedSeal, type VerificationSealVariant } from "./verified-seal";
 
 export type SocialViewer = {
   id: string;
   username?: string;
   displayName?: string;
   verified?: boolean;
+  verificationType?: VerificationSealVariant;
   badge?: BadgeDefinition;
 };
 
@@ -57,7 +58,12 @@ export function AppShell({
             <span style={{ color: profileNameColorStyles[nameColor] }}>
               {viewer.displayName ?? viewer.username ?? "Guest"}
             </span>
-            {viewer.verified ? <VerifiedSeal className="user-profile-verified-seal" label="Verified account" /> : null}
+            {viewer.verified ? (
+              <VerifiedSeal
+                className="user-profile-verified-seal"
+                variant={viewer.verificationType ?? (viewer.badge?.slug === "founder" ? "founder" : "standard")}
+              />
+            ) : null}
           </Link>
         </div>
         </header>
@@ -123,6 +129,7 @@ export function SocialShell({
         displayName: viewer.displayName,
         username: viewer.username,
         verified: viewer.verified,
+        verificationType: viewer.verificationType,
         avatar: viewer.displayName?.slice(0, 2) ?? "NA"
       }
     }, ...posts]);
@@ -144,7 +151,8 @@ export function SocialShell({
           id: viewer.id,
           displayName: viewer.displayName ?? viewer.username ?? "You",
           avatar: viewer.displayName?.slice(0, 2) ?? "NA",
-          verified: viewer.verified
+          verified: viewer.verified,
+          verificationType: viewer.verificationType ?? (viewer.badge?.slug === "founder" ? "founder" : "standard")
         },
         originalPost
       }, ...posts];
@@ -220,10 +228,22 @@ export function SocialShell({
           ) : null}
 
           {isDiscovery ? (
-            <DiscoveryFeed posts={feed} viewerId={viewer.id} />
-          ) : (
-            <div className="feed-stack">
-              {followingPosts.length === 0 ? <div className="empty-state">No posts match these filters.</div> : followingPosts.map((post) => <FeedPostCard key={post.id} post={post} onRepost={repostPost} viewerId={viewer.id} />)}
+            <DiscoveryFeed
+              posts={feed}
+              viewerId={viewer.id}
+              viewerVerificationType={viewer.verificationType ?? (viewer.badge?.slug === "founder" ? "founder" : "standard")}
+            />
+            ) : (
+              <div className="feed-stack">
+                {followingPosts.length === 0 ? <div className="empty-state">No posts match these filters.</div> : followingPosts.map((post) => (
+                  <FeedPostCard
+                    key={post.id}
+                    post={post}
+                    onRepost={repostPost}
+                    viewerId={viewer.id}
+                    viewerVerificationType={viewer.verificationType ?? (viewer.badge?.slug === "founder" ? "founder" : "standard")}
+                  />
+                ))}
             </div>
           )}
         </section>
@@ -257,7 +277,12 @@ export function SocialShell({
                       <strong style={response.userId === viewer.id ? { color: profileNameColorStyles[nameColor] } : undefined}>
                         {response.displayName}
                       </strong>
-                      {response.userId === viewer.id && viewer.verified ? <VerifiedSeal className="comment-verified-seal" /> : null}
+                      {response.userId === viewer.id && viewer.verified ? (
+                        <VerifiedSeal
+                          className="comment-verified-seal"
+                          variant={viewer.verificationType ?? (viewer.badge?.slug === "founder" ? "founder" : "standard")}
+                        />
+                      ) : null}
                       : &quot;{response.text}&quot;
                     </p>
                   ))}

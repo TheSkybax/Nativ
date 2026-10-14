@@ -1,5 +1,17 @@
 import type { BadgeSlug } from "@/lib/personalization";
+import type { VerificationSealVariant } from "@/components/verified-seal";
 import { getProfileBadges } from "./personalization";
+
+type DemoUser = {
+  id: string;
+  username: string;
+  displayName: string;
+  verified: boolean;
+  verificationType?: VerificationSealVariant;
+  bio: string;
+  avatar: string;
+  createdAt: string;
+};
 
 export const demoUsers = [
   {
@@ -7,6 +19,7 @@ export const demoUsers = [
     username: "calvinm",
     displayName: "Calvin M.",
     verified: true,
+    verificationType: "founder",
     bio: "Photographer, maker, and weekend walker.",
     avatar: "CM",
     createdAt: "2024-08-18T00:00:00Z"
@@ -25,6 +38,7 @@ export const demoUsers = [
     username: "horizon",
     displayName: "Horizon",
     verified: true,
+    verificationType: "standard",
     bio: "Community first, always.",
     avatar: "HO",
     createdAt: "2023-06-02T00:00:00Z"
@@ -38,7 +52,7 @@ export const demoUsers = [
     avatar: "SP",
     createdAt: "2025-04-20T00:00:00Z"
   }
-];
+] satisfies DemoUser[];
 
 export const demoProfileCustomization = {
   theme: "aurora",
@@ -142,6 +156,7 @@ export const demoDiscoveryPosts = [
       username: "studionorth",
       displayName: "Studio North",
       verified: true,
+      verificationType: "creator",
       avatar: "SN"
     }
   },

@@ -9,6 +9,7 @@ export default function HomePage() {
     username: "calvinm",
     displayName: "Calvin M.",
     verified: true,
+    verificationType: "founder" as const,
     badge: getDemoPrimaryBadge("user-1")
   };
 
