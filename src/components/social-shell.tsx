@@ -8,6 +8,7 @@ import type { BadgeDefinition } from "@/lib/personalization";
 import { AdvertisingProvider, SidebarAd, TopBannerAd } from "./banner-ad";
 import { DiscoveryFeed } from "./discovery-feed";
 import { FeedPostCard, type FeedPost } from "./feed-post-card";
+import { usePostMutations } from "./post-mutations-provider";
 import { NativLogo } from "./nativ-logo";
 import { ThemeToggle } from "./theme-toggle";
 import { VerifiedSeal } from "./verified-seal";
@@ -87,6 +88,7 @@ export function SocialShell({
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [composerText, setComposerText] = useState("");
   const [localPosts, setLocalPosts] = useState<FeedPost[]>([]);
+  const postMutations = usePostMutations();
   const prompt = getCurrentDailyPrompt();
   const followedResponses = promptResponsePreviews.filter((response) => followedUserIds.has(response.userId));
   const [promptResponses, setPromptResponses] = useState(followedResponses.slice(0, 3));
@@ -97,13 +99,15 @@ export function SocialShell({
 
   const followingPosts = useMemo(() => {
     const posts = [...localPosts, ...feed]
+      .map((post) => postMutations.resolvePost(post))
+      .filter((post) => !postMutations.isDeleted(post.id))
       .filter((post) => !post.isAd)
       .filter((post) => audience === "all" || (audience === "people" ? !post.communityId : Boolean(post.communityId)))
       .filter((post) => contentType === "all" || (post.contentType ?? "text") === contentType)
       .filter((post) => !verifiedOnly || post.author?.verified)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return posts;
-  }, [audience, contentType, feed, localPosts, verifiedOnly]);
+  }, [audience, contentType, feed, localPosts, postMutations, verifiedOnly]);
 
   function submitPost() {
     const text = composerText.trim();
@@ -215,10 +219,10 @@ export function SocialShell({
           ) : null}
 
           {isDiscovery ? (
-            <DiscoveryFeed posts={feed} />
+            <DiscoveryFeed posts={feed} viewerId={viewer.id} />
           ) : (
             <div className="feed-stack">
-              {followingPosts.length === 0 ? <div className="empty-state">No posts match these filters.</div> : followingPosts.map((post) => <FeedPostCard key={post.id} post={post} onRepost={repostPost} />)}
+              {followingPosts.length === 0 ? <div className="empty-state">No posts match these filters.</div> : followingPosts.map((post) => <FeedPostCard key={post.id} post={post} onRepost={repostPost} viewerId={viewer.id} />)}
             </div>
           )}
         </section>

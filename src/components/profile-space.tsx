@@ -3,6 +3,8 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { BadgeIcon } from "@/components/badge-icon";
 import { VerifiedSeal } from "@/components/verified-seal";
+import { FeedPostCard, type FeedPost } from "@/components/feed-post-card";
+import { usePostMutations } from "@/components/post-mutations-provider";
 import {
   getBadge,
   getLockedProfileBadges,
@@ -38,6 +40,9 @@ type ProfileAccount = {
 };
 
 type EarnedBadge = BadgeDefinition & { slug: BadgeSlug };
+type ProfilePostFilter = "posts" | "reposts" | "all";
+
+const PROFILE_POSTS_PAGE_SIZE = 5;
 
 const nameColors: Record<NameColor, string> = {
   nativ: "var(--text-primary)",
@@ -166,6 +171,7 @@ export function ProfileSpace({
   customization,
   badges,
   visitorBadges,
+  posts,
   accountAgeDays,
   developerCosmeticsPreview,
   initialViewedAccountId
@@ -175,6 +181,7 @@ export function ProfileSpace({
   customization: ProfileCustomization;
   badges: EarnedBadge[];
   visitorBadges: EarnedBadge[];
+  posts: FeedPost[];
   accountAgeDays: number;
   developerCosmeticsPreview: boolean;
   initialViewedAccountId?: string;
@@ -185,7 +192,11 @@ export function ProfileSpace({
   const [developerCatalogVisible, setDeveloperCatalogVisible] = useState(false);
   const [profileCustomization, setProfileCustomization] = useState(customization);
   const [developerPreviewCustomization, setDeveloperPreviewCustomization] = useState<Partial<ProfileCustomization>>({});
+  const [profilePosts, setProfilePosts] = useState(posts);
+  const [profilePostFilter, setProfilePostFilter] = useState<ProfilePostFilter>("all");
+  const [visibleProfilePostCount, setVisibleProfilePostCount] = useState(PROFILE_POSTS_PAGE_SIZE);
   const customizationPanelRef = useRef<HTMLElement | null>(null);
+  const postMutations = usePostMutations();
   const [activeBadgeSlug, setActiveBadgeSlug] = useState<string | null>(null);
   const [isBadgePopupClosing, setIsBadgePopupClosing] = useState(false);
   const [profileEdit, dispatchProfileEdit] = useReducer(
@@ -207,6 +218,21 @@ export function ProfileSpace({
   const profileBadges = isOwner && editing
     ? badges
     : displayedBadges;
+  const filteredProfilePosts = profilePosts
+    .map((post) => postMutations.resolvePost(post))
+    .filter((post) => !postMutations.isDeleted(post.id))
+    .filter((post) => {
+    const isRepost = post.repostedBy?.id === owner.id;
+    if (profilePostFilter === "reposts") {
+      return isRepost;
+    }
+    if (profilePostFilter === "posts") {
+      return !isRepost;
+    }
+    return true;
+    });
+  const visibleProfilePosts = filteredProfilePosts.slice(0, visibleProfilePostCount);
+  const hasMoreProfilePosts = visibleProfilePosts.length < filteredProfilePosts.length;
   const activeBadge = earnedBadges.find((badge) => badge.slug === activeBadgeSlug);
   const earnedBadgeSlugs = earnedBadges.map((badge) => badge.slug);
   const lockedBadges = getLockedProfileBadges(earnedBadgeSlugs);
@@ -240,6 +266,32 @@ export function ProfileSpace({
     setIsCustomizing(false);
     setDeveloperCatalogVisible(false);
     setDeveloperPreviewCustomization({});
+  }
+
+  function selectProfilePostFilter(filter: ProfilePostFilter) {
+    setProfilePostFilter(filter);
+    setVisibleProfilePostCount(PROFILE_POSTS_PAGE_SIZE);
+  }
+
+  function repostProfilePost(originalPost: FeedPost) {
+    setProfilePosts((currentPosts) => {
+      if (currentPosts.some((post) => post.originalPost?.id === originalPost.id)) {
+        return currentPosts;
+      }
+
+      return [{
+        id: `repost-${originalPost.id}`,
+        authorId: owner.id,
+        createdAt: new Date().toISOString(),
+        visibility: "everyone",
+        repostedBy: {
+          id: owner.id,
+          displayName: account.displayName,
+          avatar: owner.avatar
+        },
+        originalPost
+      }, ...currentPosts];
+    });
   }
 
   useEffect(() => {
@@ -481,6 +533,56 @@ export function ProfileSpace({
             ) : null}
           </section>
         </div>
+
+        {isOwner ? (
+          <section className="profile-posts" aria-labelledby="profile-posts-heading">
+            <div className="profile-section-heading">
+              <h2 id="profile-posts-heading">Posts</h2>
+            </div>
+            <div className="profile-post-filters" role="group" aria-label="Filter profile posts">
+              <button
+                className={profilePostFilter === "posts" ? "active" : ""}
+                type="button"
+                aria-pressed={profilePostFilter === "posts"}
+                onClick={() => selectProfilePostFilter("posts")}
+              >
+                Posts
+              </button>
+              <button
+                className={profilePostFilter === "reposts" ? "active" : ""}
+                type="button"
+                aria-pressed={profilePostFilter === "reposts"}
+                onClick={() => selectProfilePostFilter("reposts")}
+              >
+                Reposts
+              </button>
+              <button
+                className={profilePostFilter === "all" ? "active" : ""}
+                type="button"
+                aria-pressed={profilePostFilter === "all"}
+                onClick={() => selectProfilePostFilter("all")}
+              >
+                All posts
+              </button>
+            </div>
+            <div className="feed-stack">
+              {visibleProfilePosts.map((post) => (
+                <FeedPostCard key={post.id} post={post} onRepost={repostProfilePost} viewerId={owner.id} />
+              ))}
+            </div>
+            {hasMoreProfilePosts ? (
+              <button
+                className="profile-posts-more"
+                type="button"
+                onClick={() => setVisibleProfilePostCount((count) => count + PROFILE_POSTS_PAGE_SIZE)}
+              >
+                Show more posts
+              </button>
+            ) : (
+              <p className="profile-posts-end" role="status">No More Posts</p>
+            )}
+          </section>
+        ) : null}
 
         {isOwner ? (
           <section

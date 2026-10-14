@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { getPopularTagSuggestions } from "@/lib/post-tag-suggestions";
+import { usePostMutations } from "./post-mutations-provider";
 
 export type FeedPost = {
   id: string;
@@ -19,6 +21,7 @@ export type FeedPost = {
   };
   discoveryScore?: number;
   contentType?: "text" | "photo" | "video" | "long-form" | "poll";
+  tags?: readonly string[];
   communityId?: string;
   repostedBy?: { id: string; displayName: string; avatar: string };
   originalPost?: FeedPost;
@@ -54,19 +57,63 @@ export function FeedPostCard({
   footer,
   showDiscoveryScore = false,
   onRepost,
-  canRepost = true
+  canRepost = true,
+  viewerId
 }: {
   post: FeedPost;
   footer?: ReactNode;
   showDiscoveryScore?: boolean;
   onRepost?: (post: FeedPost) => void;
   canRepost?: boolean;
+  viewerId?: string;
 }) {
+  const { resolvePost, isDeleted, updatePost, deletePost } = usePostMutations();
+  const currentPost = resolvePost(post);
   const [liked, setLiked] = useState(false);
   const [commenting, setCommenting] = useState(false);
   const [comment, setComment] = useState("");
   const [comments, setComments] = useState<MockComment[]>(commentsByPost[post.id] ?? []);
   const [reposted, setReposted] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [draftText, setDraftText] = useState(currentPost.text ?? "");
+  const [draftTags, setDraftTags] = useState((currentPost.tags ?? []).join(", "));
+  const [draftVisibility, setDraftVisibility] = useState(currentPost.visibility);
+  const isAuthor = viewerId !== undefined && currentPost.authorId === viewerId;
+  const suggestedTags = getPopularTagSuggestions(draftText);
+  const selectedDraftTags = draftTags.split(",").map((tag) => tag.trim().replace(/^#/, "")).filter(Boolean);
+
+  if (isDeleted(currentPost.id)) {
+    return null;
+  }
+
+  function startEditing() {
+    setDraftText(currentPost.text ?? "");
+    setDraftTags((currentPost.tags ?? []).join(", "));
+    setDraftVisibility(currentPost.visibility);
+    setEditing(true);
+    setConfirmingDelete(false);
+  }
+
+  function savePost() {
+    const tags = [...new Set(draftTags.split(",").map((tag) => tag.trim().replace(/^#/, "")).filter(Boolean))];
+    updatePost(currentPost.id, {
+      text: draftText.trim(),
+      tags,
+      visibility: draftVisibility
+    });
+    setEditing(false);
+  }
+
+  function toggleSuggestedTag(tag: string) {
+    const selected = new Set(selectedDraftTags);
+    if (selected.has(tag)) {
+      selected.delete(tag);
+    } else {
+      selected.add(tag);
+    }
+    setDraftTags([...selected].join(", "));
+  }
 
   function submitComment() {
     if (!comment.trim()) return;
@@ -81,20 +128,27 @@ export function FeedPostCard({
     setComment("");
   }
 
-  const timestamp = new Date(post.createdAt).toLocaleString(undefined, {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  });
-
-  if (post.repostedBy && post.originalPost) {
+  if (currentPost.repostedBy && currentPost.originalPost) {
     return (
       <article className="post-card repost-card">
-        <p className="repost-label"><span className="repost-icon" aria-hidden="true">↻</span> {post.repostedBy.displayName} shared this post</p>
+        <div className="post-topline">
+          <p className="repost-label"><span className="repost-icon" aria-hidden="true">↻</span> {currentPost.repostedBy.displayName} shared this post</p>
+        {isAuthor ? (
+          <div className="post-owner-actions post-owner-actions-top">
+            {confirmingDelete ? (
+              <>
+                <span>Delete this repost?</span>
+                <button type="button" onClick={() => deletePost(currentPost.id)}>Delete</button>
+                <button type="button" onClick={() => setConfirmingDelete(false)}>Cancel</button>
+              </>
+            ) : (
+              <button type="button" onClick={() => setConfirmingDelete(true)}>Delete repost</button>
+            )}
+          </div>
+        ) : null}
+        </div>
         <div className="repost-nested-card">
-          <FeedPostCard post={post.originalPost} showDiscoveryScore={showDiscoveryScore} onRepost={onRepost} canRepost={false} />
+          <FeedPostCard post={currentPost.originalPost} showDiscoveryScore={showDiscoveryScore} onRepost={onRepost} canRepost={false} viewerId={viewerId} />
         </div>
       </article>
     );
@@ -102,33 +156,115 @@ export function FeedPostCard({
 
   return (
     <article className="post-card">
-      {post.isAd ? <span className="sponsored-tag">Sponsored</span> : null}
+      {currentPost.isAd ? <span className="sponsored-tag">Sponsored</span> : null}
       <div className="post-head">
-        <Link href={`/profile?user=${post.authorId}`} className="avatar-link" aria-label={`View ${post.author?.displayName ?? "user"}'s profile`}>
-          <div className="avatar">{post.author?.avatar ?? "NA"}</div>
+        <Link href={`/profile?user=${currentPost.authorId}`} className="avatar-link" aria-label={`View ${currentPost.author?.displayName ?? "user"}'s profile`}>
+          <div className="avatar">{currentPost.author?.avatar ?? "NA"}</div>
         </Link>
         <div>
           <h3>
-            <Link className="post-author-link" href={`/profile?user=${post.authorId}`}>
-              {post.author?.displayName ?? "Community member"}
+            <Link className="post-author-link" href={`/profile?user=${currentPost.authorId}`}>
+              {currentPost.author?.displayName ?? "Community member"}
             </Link>
-            {post.author?.verified ? <span className="verified-badge">✓</span> : null}
+            {currentPost.author?.verified ? <span className="verified-badge">✓</span> : null}
           </h3>
-          <p className="post-timestamp">{timestamp}</p>
+          <p className="post-timestamp">{new Date(currentPost.createdAt).toLocaleString(undefined, {
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+            hour: "numeric",
+            minute: "2-digit"
+          })}</p>
         </div>
-        <span className="visibility-tag">{post.visibility}</span>
+        <div className="post-topline-actions">
+          {isAuthor ? (
+            <div className="post-owner-actions post-owner-actions-top">
+              {confirmingDelete ? (
+                <>
+                  <span>Delete this post?</span>
+                  <button type="button" onClick={() => deletePost(currentPost.id)}>Delete</button>
+                  <button type="button" onClick={() => setConfirmingDelete(false)}>Cancel</button>
+                </>
+              ) : (
+                <>
+                  <button type="button" onClick={startEditing} disabled={editing}>Edit</button>
+                  <button type="button" onClick={() => { setConfirmingDelete(true); setEditing(false); }}>Delete</button>
+                </>
+              )}
+            </div>
+          ) : null}
+          <span className="visibility-tag">{currentPost.visibility}</span>
+        </div>
       </div>
 
-      <p className="post-body">{post.text}</p>
+      {editing ? (
+        <div className="post-edit-form">
+          <label>
+            Post
+            <textarea value={draftText} onChange={(event) => setDraftText(event.target.value)} rows={4} />
+          </label>
+          <label>
+            Suggested tags
+            {suggestedTags.length ? (
+              <span className="post-tag-suggestions">
+                {suggestedTags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    className={selectedDraftTags.includes(tag) ? "selected" : ""}
+                    aria-pressed={selectedDraftTags.includes(tag)}
+                    onClick={() => toggleSuggestedTag(tag)}
+                  >
+                    #{tag}
+                  </button>
+                ))}
+              </span>
+            ) : (
+              <small>No popular tags match this text yet.</small>
+            )}
+          </label>
+          <label className="post-custom-tags-label">
+            Other tags (optional)
+            <input
+              value={draftTags}
+              onChange={(event) => setDraftTags(event.target.value)}
+              placeholder="Choose suggested tags above"
+              aria-describedby={`post-tag-guidance-${currentPost.id}`}
+            />
+            <small id={`post-tag-guidance-${currentPost.id}`}>Using popular suggestions helps people find related posts.</small>
+          </label>
+          <label>
+            Audience
+            <select value={draftVisibility} onChange={(event) => setDraftVisibility(event.target.value)}>
+              <option value="everyone">Everyone</option>
+              <option value="verified-only">Verified only</option>
+              <option value="followers">Followers</option>
+              <option value="verified-followers">Verified followers</option>
+              <option value="private">Only me</option>
+            </select>
+          </label>
+          <div className="post-owner-actions">
+            <button type="button" onClick={savePost}>Save changes</button>
+            <button type="button" onClick={() => setEditing(false)}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p className="post-body">{currentPost.text}</p>
+          {currentPost.tags?.length ? (
+            <div className="tag-row post-tags">{currentPost.tags.map((tag) => <span className="tag" key={tag}>#{tag}</span>)}</div>
+          ) : null}
+        </>
+      )}
 
-      {showDiscoveryScore && post.discoveryScore !== undefined ? (
+      {showDiscoveryScore && currentPost.discoveryScore !== undefined ? (
         <p className="post-context">Recommended for your interests</p>
       ) : null}
 
       <div className="post-meta">
         <button className={`post-action like-action ${liked ? "liked" : ""}`} type="button" onClick={() => setLiked((value) => !value)} aria-pressed={liked}><span aria-hidden="true">{liked ? "♥" : "♡"}</span> {12 + (liked ? 1 : 0)}</button>
         <button className={`post-action ${commenting ? "active" : ""}`} type="button" onClick={() => setCommenting((value) => !value)} aria-expanded={commenting}>💬 {comments.length}</button>
-        {canRepost ? <button className={`post-action ${reposted ? "active" : ""}`} type="button" disabled={reposted} onClick={() => { setReposted(true); onRepost?.(post); }}>{reposted ? "✓ Reposted" : "↻ Repost"}</button> : null}
+        {canRepost ? <button className={`post-action ${reposted ? "active" : ""}`} type="button" disabled={reposted} onClick={() => { setReposted(true); onRepost?.(currentPost); }}>{reposted ? "✓ Reposted" : "↻ Repost"}</button> : null}
       </div>
       {commenting ? (
         <div className="comments-section">

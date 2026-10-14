@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FeedPostCard, type FeedPost } from "./feed-post-card";
 
-export function DiscoveryFeed({ posts }: { posts: FeedPost[] }) {
+export function DiscoveryFeed({ posts, viewerId }: { posts: FeedPost[]; viewerId: string }) {
   const [visibleCount, setVisibleCount] = useState(3);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const visiblePosts = Array.from({ length: visibleCount }, (_, index) => posts[index % posts.length]);
@@ -38,6 +38,7 @@ export function DiscoveryFeed({ posts }: { posts: FeedPost[] }) {
           key={`${post.id}-${index}`}
           post={post}
           showDiscoveryScore
+          viewerId={viewerId}
         />
       ))}
       <div ref={loadMoreRef} className="load-more-status" aria-live="polite">

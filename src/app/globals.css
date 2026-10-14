@@ -421,9 +421,131 @@ textarea {
   padding: 20px;
 }
 
+.post-owner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.post-owner-actions-top {
+  justify-content: flex-end;
+  margin-top: 0;
+}
+
+.post-topline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.post-topline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.post-owner-actions button {
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.post-owner-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.post-edit-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.post-edit-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.post-edit-form small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.post-tag-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.post-tag-suggestions button {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.post-tag-suggestions button.selected {
+  border-color: var(--brand-teal-bright);
+  background: rgba(57, 197, 178, 0.14);
+  color: var(--brand-teal-soft);
+}
+
+.post-tag-suggestions button:focus-visible {
+  outline: 2px solid var(--brand-teal-bright);
+  outline-offset: 2px;
+}
+
+.post-custom-tags-label {
+  opacity: 0.82;
+}
+
+.post-edit-form input,
+.post-edit-form textarea,
+.post-edit-form select {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+}
+
+.post-edit-form textarea {
+  resize: vertical;
+}
+
+.post-edit-form :focus-visible,
+.post-owner-actions button:focus-visible {
+  outline: 2px solid var(--brand-teal-bright);
+  outline-offset: 2px;
+}
+
+.post-tags {
+  margin-top: 10px;
+}
+
 .post-head {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: flex-start;
   gap: 12px;
 }
 
@@ -1368,6 +1490,62 @@ textarea {
 .profile-customization {
   container: customization-section / inline-size;
   margin-top: 20px;
+}
+
+.profile-posts {
+  margin-top: 24px;
+}
+
+.profile-posts .profile-section-heading {
+  margin-bottom: 14px;
+}
+
+.profile-post-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.profile-post-filters button {
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.profile-post-filters button.active {
+  border-color: var(--brand-teal);
+  background: var(--brand-soft);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.profile-post-filters button:focus-visible,
+.profile-posts-more:focus-visible {
+  outline: 2px solid var(--brand-teal-bright);
+  outline-offset: 2px;
+}
+
+.profile-posts-more {
+  display: block;
+  margin: 16px auto 0;
+  padding: 9px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--text-primary);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-posts-end {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: center;
 }
 
 .customization-preview-row {

@@ -3,6 +3,7 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 import { BadgeIcon } from "@/components/badge-icon";
 import { VerifiedSeal } from "@/components/verified-seal";
+import { FeedPostCard, type FeedPost } from "@/components/feed-post-card";
 import {
   getBadge,
   getLockedProfileBadges,
@@ -166,6 +167,7 @@ export function ProfileSpace({
   customization,
   badges,
   visitorBadges,
+  posts,
   accountAgeDays,
   developerCosmeticsPreview,
   initialViewedAccountId
@@ -175,6 +177,7 @@ export function ProfileSpace({
   customization: ProfileCustomization;
   badges: EarnedBadge[];
   visitorBadges: EarnedBadge[];
+  posts: FeedPost[];
   accountAgeDays: number;
   developerCosmeticsPreview: boolean;
   initialViewedAccountId?: string;
@@ -481,6 +484,17 @@ export function ProfileSpace({
             ) : null}
           </section>
         </div>
+
+        {isOwner ? (
+          <section className="profile-posts" aria-labelledby="profile-posts-heading">
+            <div className="profile-section-heading">
+              <h2 id="profile-posts-heading">Posts</h2>
+            </div>
+            <div className="feed-stack">
+              {posts.map((post) => <FeedPostCard key={post.id} post={post} />)}
+            </div>
+          </section>
+        ) : null}
 
         {isOwner ? (
           <section

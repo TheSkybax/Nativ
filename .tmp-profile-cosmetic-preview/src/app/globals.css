@@ -1370,6 +1370,14 @@ textarea {
   margin-top: 20px;
 }
 
+.profile-posts {
+  margin-top: 24px;
+}
+
+.profile-posts .profile-section-heading {
+  margin-bottom: 14px;
+}
+
 .customization-preview-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

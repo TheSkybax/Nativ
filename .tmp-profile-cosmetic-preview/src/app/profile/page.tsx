@@ -1,7 +1,7 @@
 import { AppShell } from "@/components/social-shell";
 import { ProfileSpace } from "@/components/profile-space";
 import { PageAdRails } from "@/components/page-ad-rails";
-import { demoBadgeAsOf, demoBadgeAssignments, demoProfileCustomization, demoUsers, getDemoPrimaryBadge } from "@/lib/demo-data";
+import { demoBadgeAsOf, demoBadgeAssignments, demoPosts, demoProfileCustomization, demoUsers, getDemoPrimaryBadge } from "@/lib/demo-data";
 import {
   buildProfileCustomization,
   getAccountAgeDays,
@@ -29,6 +29,13 @@ export default async function ProfilePage({
     following: 91,
     posts: 42
   };
+  const ownerPosts = demoPosts
+    .filter((post) => post.authorId === owner.id)
+    .map((post) => ({
+      ...post,
+      text: post.text ?? "",
+      contentType: "text" as const
+    }));
   const demoNow = new Date(demoBadgeAsOf);
   const developerCosmeticsPreview = isDeveloperCosmeticsPreviewEnabled(
     process.env.NODE_ENV,
@@ -55,6 +62,7 @@ export default async function ProfilePage({
           customization={customization}
           badges={badges}
           visitorBadges={visitorBadges}
+          posts={ownerPosts}
           accountAgeDays={getAccountAgeDays(owner.createdAt, demoNow)}
           developerCosmeticsPreview={developerCosmeticsPreview}
           initialViewedAccountId={params.user === visitor.id ? visitor.id : owner.id}
