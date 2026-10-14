@@ -1372,9 +1372,8 @@ textarea {
 
 .customization-preview-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(180px, 32%, 260px);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 14px;
   margin-top: 16px;
 }
 
@@ -1392,6 +1391,23 @@ textarea {
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
 }
 
+.customization-header-preview-button {
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.customization-header-preview-button:hover {
+  filter: brightness(1.04);
+}
+
+.customization-header-preview-button:focus-visible {
+  outline: 3px solid var(--brand-teal-bright);
+  outline-offset: 3px;
+}
+
 .customization-header-identity,
 .customization-header-actions {
   display: flex;
@@ -1406,16 +1422,6 @@ textarea {
 
 .customization-header-actions {
   flex: 0 1 auto;
-}
-
-.customization-selection-summary {
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.4;
-  text-align: center;
 }
 
 .customization-header-identity strong {
@@ -1470,20 +1476,11 @@ textarea {
 }
 
 @container customization-section (max-width: 400px) {
-  .customization-preview-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .customization-header-preview {
     align-items: flex-start;
     flex-direction: column;
     justify-content: flex-start;
     gap: 7px;
-  }
-
-  .customization-selection-summary {
-    justify-items: end;
-    text-align: right;
   }
 
   .customization-header-identity {
@@ -2959,14 +2956,65 @@ textarea {
 }
 
 .customization-color-group legend {
+  width: 100%;
   padding: 0 6px;
+}
+
+.customization-color-group-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
   font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.customization-color-group-toggle svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.customization-color-group-toggle:focus-visible {
+  outline: 2px solid var(--brand-teal-bright);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.customization-color-group-selection {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0 0;
+  color: var(--text-primary);
+}
+
+.customization-color-group-selection .customization-color-swatch {
+  flex: 0 0 auto;
+  grid-row: auto;
 }
 
 .customization-color-options {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.customization-color-options[hidden] {
+  display: none;
 }
 
 .customization-color-option {

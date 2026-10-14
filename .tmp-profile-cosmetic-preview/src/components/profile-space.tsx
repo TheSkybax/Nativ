@@ -74,7 +74,10 @@ function ColorChoiceGroup<T extends string>({
   developerPreview: boolean;
   onSelect: (value: T, status: ProfileCosmeticStatus) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const visibleOptions = getVisibleProfileCosmeticOptions(options, eligibility, developerPreview);
+  const selectedOption = visibleOptions.find((option) => option.value === selected);
+  const sectionId = `customization-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 
   function getUnlockDescription(unlock: ProfileCosmeticUnlock | undefined) {
     if (!unlock) {
@@ -95,8 +98,32 @@ function ColorChoiceGroup<T extends string>({
 
   return (
     <fieldset className="customization-color-group">
-      <legend>{label}</legend>
-      <div className="customization-color-options">
+      <legend>
+        <button
+          className="customization-color-group-toggle"
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={`${sectionId}-options`}
+          onClick={() => setExpanded(!expanded)}
+        >
+          <span>{label}</span>
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d={expanded ? "m3 10 5-5 5 5" : "m3 6 5 5 5-5"} />
+          </svg>
+        </button>
+      </legend>
+      {!expanded && selectedOption ? (
+        <div className="customization-color-group-selection">
+          <span className="customization-color-swatch" style={{ background: selectedOption.swatch }} aria-hidden="true" />
+          <span>{selectedOption.label}</span>
+          {developerPreview ? (
+            <small className={`customization-option-status status-${getProfileCosmeticStatus(selectedOption, eligibility)}`}>
+              {getProfileCosmeticStatus(selectedOption, eligibility)}
+            </small>
+          ) : null}
+        </div>
+      ) : null}
+      <div id={`${sectionId}-options`} className="customization-color-options" hidden={!expanded}>
         {visibleOptions.map((option) => {
           const status = getProfileCosmeticStatus(option, eligibility);
           const unlocked = status === "available";
@@ -130,18 +157,6 @@ function ColorChoiceGroup<T extends string>({
       </div>
     </fieldset>
   );
-}
-
-function getSelectedOptionLabel<T extends string>(
-  options: readonly ProfileColorOption<T>[],
-  value: T
-) {
-  const option = options.find((item) => item.value === value);
-  if (!option) {
-    throw new Error(`No customization label found for "${value}".`);
-  }
-
-  return option.label;
 }
 
 export function ProfileSpace({
@@ -201,11 +216,6 @@ export function ProfileSpace({
   const displayCustomization = { ...profileCustomization, ...developerPreviewCustomization };
   const bannerBackground = backgroundStyles[displayCustomization.background];
   const nameColor = nameColors[displayCustomization.nameColor];
-  const customizationSummary = [
-    { name: getSelectedOptionLabel(profileHeaderBackgroundOptions, displayCustomization.background), descriptor: "theme" },
-    { name: getSelectedOptionLabel(profilePanelColorOptions, displayCustomization.profilePanelColor), descriptor: "profile" },
-    { name: getSelectedOptionLabel(profileCardsColorOptions, displayCustomization.profileCardsColor), descriptor: "panels" }
-  ];
 
   function chooseCosmetic<K extends keyof ProfileCustomization>(
     key: K,
@@ -500,10 +510,13 @@ export function ProfileSpace({
               </div>
             </div>
             <div className="customization-preview-row">
-              <div
-                className="customization-header-preview"
+              <button
+                className="customization-header-preview customization-header-preview-button"
+                type="button"
+                aria-label="Open profile customization options"
                 data-profile-header-theme={displayCustomization.background}
                 style={{ background: bannerBackground }}
+                onClick={() => setIsCustomizing(true)}
               >
                 <div className="customization-header-identity">
                   <span className="customization-preview-avatar">{account.avatar}</span>
@@ -513,12 +526,7 @@ export function ProfileSpace({
                   <span className="customization-preview-action">Edit profile</span>
                   <span className="customization-preview-action">Customize</span>
                 </div>
-              </div>
-              <div className="customization-selection-summary">
-                {customizationSummary.map(({ name, descriptor }) => (
-                  <span key={descriptor}><strong>{name}</strong> {descriptor}</span>
-                ))}
-              </div>
+              </button>
             </div>
             {isCustomizing ? (
               <>
