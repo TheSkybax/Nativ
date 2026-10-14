@@ -14,7 +14,8 @@ export type ProfileEditAction =
   | { type: "open" }
   | { type: "change"; field: "displayName" | "bio"; value: string }
   | { type: "toggle-badge"; slug: string; visible: boolean }
-  | { type: "reorder-badge"; slug: string; targetSlug: string }
+  | { type: "reorder-badge"; slug: string; targetIndex: number }
+  | { type: "restore-badge-order"; slugs: string[] }
   | { type: "save" }
   | { type: "cancel" };
 
@@ -60,22 +61,46 @@ export function profileEditReducer(state: ProfileEditState, action: ProfileEditA
         }
       };
     case "reorder-badge": {
-      if (!state.editing || action.slug === action.targetSlug) {
+      if (!state.editing) {
         return state;
       }
 
       const fromIndex = state.draft.visibleBadgeSlugs.indexOf(action.slug);
-      const targetIndex = state.draft.visibleBadgeSlugs.indexOf(action.targetSlug);
-      if (fromIndex < 0 || targetIndex < 0) {
+      if (fromIndex < 0 || action.targetIndex < 0 || action.targetIndex >= state.draft.visibleBadgeSlugs.length) {
         return state;
       }
 
       const visibleBadgeSlugs = [...state.draft.visibleBadgeSlugs];
       visibleBadgeSlugs.splice(fromIndex, 1);
+      const targetIndex = Math.min(action.targetIndex, visibleBadgeSlugs.length);
       visibleBadgeSlugs.splice(targetIndex, 0, action.slug);
+      if (visibleBadgeSlugs.every((slug, index) => slug === state.draft.visibleBadgeSlugs[index])) {
+        return state;
+      }
       return {
         ...state,
         draft: { ...state.draft, visibleBadgeSlugs }
+      };
+    }
+    case "restore-badge-order": {
+      if (!state.editing) {
+        return state;
+      }
+
+      const current = state.draft.visibleBadgeSlugs;
+      const restored = action.slugs;
+      if (
+        restored.length !== current.length ||
+        new Set(restored).size !== current.length ||
+        restored.some((slug) => !current.includes(slug)) ||
+        restored.every((slug, index) => slug === current[index])
+      ) {
+        return state;
+      }
+
+      return {
+        ...state,
+        draft: { ...state.draft, visibleBadgeSlugs: [...restored] }
       };
     }
     case "save": {

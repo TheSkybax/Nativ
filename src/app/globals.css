@@ -1211,7 +1211,7 @@ textarea {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: rgba(255,255,255,0.7);
+  background: var(--profile-edit-field-background, var(--surface-primary));
   color: var(--text);
   resize: vertical;
 }
@@ -1235,7 +1235,7 @@ textarea {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: rgba(255,255,255,0.7);
+  background: var(--profile-edit-field-background, var(--surface-primary));
   color: var(--text);
 }
 
@@ -1306,9 +1306,30 @@ textarea {
 
 .badge-tile-wrap-draggable {
   cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
 
 .badge-tile-wrap-draggable:active {
+  cursor: grabbing;
+}
+
+.badge-tile-wrap-dragging {
+  visibility: hidden;
+}
+
+.badge-drag-overlay {
+  position: fixed;
+  z-index: 20;
+  pointer-events: none;
+  filter: brightness(1.08);
+  transform: scale(1.035);
+  transform-origin: top left;
+  box-shadow: 0 14px 32px rgba(1, 10, 20, 0.45);
+}
+
+.badge-drag-overlay .badge-tile {
+  height: 100%;
   cursor: grabbing;
 }
 
@@ -1423,6 +1444,10 @@ textarea {
 .badge-description-popup.closing {
   animation-direction: reverse;
   animation-fill-mode: forwards;
+}
+
+.badge-description-popup.edit-mode {
+  pointer-events: none;
 }
 
 .badge-tile-wrap:nth-child(even) .badge-description-popup {

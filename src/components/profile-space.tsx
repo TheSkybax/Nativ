@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
+import type { CSSProperties, PointerEvent } from "react";
 import { BadgeIcon } from "@/components/badge-icon";
 import { useProfileAppearance } from "@/components/profile-appearance-provider";
 import { VerifiedSeal } from "@/components/verified-seal";
@@ -15,6 +16,7 @@ import {
   type ProfileCosmeticEligibility,
   type ProfileCosmeticStatus,
   type ProfileCosmeticUnlock,
+  type ProfilePanelColor,
   profileCardsColorOptions,
   profileHeaderBackgroundOptions,
   profileNameColorOptions,
@@ -44,8 +46,33 @@ type ProfileAccount = {
 
 type EarnedBadge = BadgeDefinition & { slug: BadgeSlug };
 type ProfilePostFilter = "posts" | "reposts" | "all";
+type ActiveBadgeDrag = {
+  slug: BadgeSlug;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
 
 const PROFILE_POSTS_PAGE_SIZE = 5;
+
+const profilePanelBackgrounds: Record<ProfilePanelColor, string> = {
+  default: "var(--surface-primary)",
+  "red-tint": "var(--profile-panel-red-tint)",
+  "red-solid": "var(--profile-panel-red-solid)",
+  "orange-tint": "var(--profile-panel-orange-tint)",
+  "orange-solid": "var(--profile-panel-orange-solid)",
+  "yellow-tint": "var(--profile-panel-yellow-tint)",
+  "yellow-solid": "var(--profile-panel-yellow-solid)",
+  "green-tint": "var(--profile-panel-green-tint)",
+  "green-solid": "var(--profile-panel-green-solid)",
+  "blue-tint": "var(--profile-panel-blue-tint)",
+  "blue-solid": "var(--profile-panel-blue-solid)",
+  "purple-tint": "var(--profile-panel-purple-tint)",
+  "purple-solid": "var(--profile-panel-purple-solid)",
+  midnight: "#182a45",
+  "promotion-preview": "var(--profile-panel-green-tint)"
+};
 
 function orderBadgesBySlugs(badges: EarnedBadge[], orderedSlugs: readonly string[]) {
   const badgesBySlug = new Map<string, EarnedBadge>(badges.map((badge) => [badge.slug, badge]));
@@ -55,6 +82,59 @@ function orderBadgesBySlugs(badges: EarnedBadge[], orderedSlugs: readonly string
   });
   const orderedSet = new Set(ordered.map((badge) => badge.slug));
   return [...ordered, ...badges.filter((badge) => !orderedSet.has(badge.slug))];
+}
+
+function getBadgeLayoutRect(element: HTMLElement) {
+  const rect = element.getBoundingClientRect();
+  const transform = getComputedStyle(element).transform;
+  if (transform === "none") {
+    return rect;
+  }
+
+  const matrix = new DOMMatrixReadOnly(transform);
+  return new DOMRect(rect.left - matrix.m41, rect.top - matrix.m42, rect.width, rect.height);
+}
+
+function getBadgeDropTarget(
+  badges: Array<{ element: HTMLElement; slug: string }>,
+  clientX: number,
+  clientY: number,
+  draggedSlug?: string,
+  orderedSlugs?: readonly string[],
+  draggedWidth = 0,
+  draggedHeight = 0
+) {
+  const candidates = badges.flatMap(({ element, slug }) => {
+    const bounds = getBadgeLayoutRect(element);
+    const centerX = (bounds.left + bounds.right) / 2;
+    const centerY = (bounds.top + bounds.bottom) / 2;
+    const deltaX = clientX - centerX;
+    const deltaY = clientY - centerY;
+    const draggedLeft = clientX - draggedWidth / 2;
+    const draggedRight = clientX + draggedWidth / 2;
+    const draggedTop = clientY - draggedHeight / 2;
+    const draggedBottom = clientY + draggedHeight / 2;
+    const overlapWidth = Math.max(0, Math.min(draggedRight, bounds.right) - Math.max(draggedLeft, bounds.left));
+    const overlapHeight = Math.max(0, Math.min(draggedBottom, bounds.bottom) - Math.max(draggedTop, bounds.top));
+    const overlapArea = overlapWidth * overlapHeight;
+    if (overlapArea === 0 || !orderedSlugs) {
+      return [];
+    }
+
+    const targetIndex = orderedSlugs.indexOf(slug);
+    if (targetIndex < 0) {
+      return [];
+    }
+
+    return [{
+      slug,
+      targetIndex,
+      overlapArea,
+      distance: deltaX * deltaX + deltaY * deltaY
+    }];
+  });
+
+  return candidates.sort((left, right) => right.overlapArea - left.overlapArea || left.distance - right.distance)[0] ?? null;
 }
 
 const backgroundStyles: Record<BackgroundName, string> = {
@@ -206,9 +286,25 @@ export function ProfileSpace({
   const customizationPanelRef = useRef<HTMLElement | null>(null);
   const badgeGridRef = useRef<HTMLDivElement | null>(null);
   const previousBadgePositionsRef = useRef<Map<string, DOMRect> | null>(null);
+  const pendingBadgeDragRef = useRef<{
+    slug: BadgeSlug;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    offsetX: number;
+    offsetY: number;
+    width: number;
+    height: number;
+    originalOrder: string[];
+    currentOrder: string[];
+    started: boolean;
+  } | null>(null);
+  const suppressBadgeClickRef = useRef(false);
   const [badgeReorderAnnouncement, setBadgeReorderAnnouncement] = useState("");
+  const [activeBadgeDrag, setActiveBadgeDrag] = useState<ActiveBadgeDrag | null>(null);
   const postMutations = usePostMutations();
   const [activeBadgeSlug, setActiveBadgeSlug] = useState<string | null>(null);
+  const [hoveredBadgeSlug, setHoveredBadgeSlug] = useState<string | null>(null);
   const [isBadgePopupClosing, setIsBadgePopupClosing] = useState(false);
   const [profileEdit, dispatchProfileEdit] = useReducer(
     profileEditReducer,
@@ -219,6 +315,8 @@ export function ProfileSpace({
     },
     createProfileEditState
   );
+  const profileEditRef = useRef(profileEdit);
+  profileEditRef.current = profileEdit;
   const { editing } = profileEdit;
   const isOwner = viewedAccountId === owner.id;
   const account = isOwner ? { ...owner, ...profileEdit.saved } : visitor;
@@ -245,6 +343,8 @@ export function ProfileSpace({
   const visibleProfilePosts = filteredProfilePosts.slice(0, visibleProfilePostCount);
   const hasMoreProfilePosts = visibleProfilePosts.length < filteredProfilePosts.length;
   const activeBadge = earnedBadges.find((badge) => badge.slug === activeBadgeSlug);
+  const hoveredBadge = activeBadgeDrag ? undefined : earnedBadges.find((badge) => badge.slug === hoveredBadgeSlug);
+  const draggedBadge = activeBadgeDrag ? badges.find((badge) => badge.slug === activeBadgeDrag.slug) : undefined;
   const earnedBadgeSlugs = earnedBadges.map((badge) => badge.slug);
   const lockedBadges = getLockedProfileBadges(earnedBadgeSlugs);
   const cosmeticEligibility: ProfileCosmeticEligibility = {
@@ -297,7 +397,7 @@ export function ProfileSpace({
     previousBadgePositionsRef.current = new Map(
       Array.from(grid.querySelectorAll<HTMLElement>("[data-badge-slug]"))
         .flatMap((element) => element.dataset.badgeSlug
-          ? [[element.dataset.badgeSlug, element.getBoundingClientRect()] as const]
+          ? [[element.dataset.badgeSlug, getBadgeLayoutRect(element)] as const]
           : [])
     );
   }
@@ -306,27 +406,155 @@ export function ProfileSpace({
     return badges.some((badge) => badge.slug === slug);
   }
 
-  function moveBadge(slug: BadgeSlug, targetSlug: BadgeSlug) {
-    if (slug === targetSlug || !profileEdit.draft.visibleBadgeSlugs.includes(slug) || !profileEdit.draft.visibleBadgeSlugs.includes(targetSlug)) {
+  function moveBadgeToIndex(slug: BadgeSlug, targetIndex: number, announce = true) {
+    const activeDrag = pendingBadgeDragRef.current;
+    const currentOrder = activeDrag?.slug === slug
+      ? activeDrag.currentOrder
+      : profileEditRef.current.draft.visibleBadgeSlugs;
+    if (!currentOrder.includes(slug) || targetIndex < 0 || targetIndex >= currentOrder.length) {
       return;
     }
 
     captureBadgePositions();
-    const orderedSlugs = [...profileEdit.draft.visibleBadgeSlugs];
-    const fromIndex = orderedSlugs.indexOf(slug);
-    const targetIndex = orderedSlugs.indexOf(targetSlug);
-    orderedSlugs.splice(fromIndex, 1);
+    const orderedSlugs = [...currentOrder];
+    orderedSlugs.splice(orderedSlugs.indexOf(slug), 1);
     orderedSlugs.splice(targetIndex, 0, slug);
-    dispatchProfileEdit({ type: "reorder-badge", slug, targetSlug });
-    setBadgeReorderAnnouncement(`${getBadge(slug).label} moved to position ${targetIndex + 1} of ${orderedSlugs.length}.`);
+    if (orderedSlugs.every((currentSlug, index) => currentSlug === currentOrder[index])) {
+      previousBadgePositionsRef.current = null;
+      return;
+    }
+    if (activeDrag?.slug === slug) {
+      activeDrag.currentOrder = orderedSlugs;
+    }
+    dispatchProfileEdit({ type: "reorder-badge", slug, targetIndex });
+    if (announce) {
+      setBadgeReorderAnnouncement(`${getBadge(slug).label} moved to position ${targetIndex + 1} of ${orderedSlugs.length}.`);
+    }
   }
 
   function moveBadgeByOffset(slug: BadgeSlug, offset: -1 | 1) {
     const currentIndex = profileEdit.draft.visibleBadgeSlugs.indexOf(slug);
-    const targetSlug = profileEdit.draft.visibleBadgeSlugs[currentIndex + offset];
-    if (targetSlug && isEarnedBadgeSlug(targetSlug)) {
-      moveBadge(slug, targetSlug);
+    const targetIndex = currentIndex + offset;
+    if (targetIndex >= 0 && targetIndex < profileEdit.draft.visibleBadgeSlugs.length) {
+      moveBadgeToIndex(slug, targetIndex);
     }
+  }
+
+  function startBadgePointerDrag(event: PointerEvent<HTMLDivElement>, slug: BadgeSlug, selected: boolean) {
+    if (!editing || !selected || !event.isPrimary || event.button !== 0 || (event.target as Element).closest(".badge-reorder-actions")) {
+      return;
+    }
+
+    const bounds = getBadgeLayoutRect(event.currentTarget);
+    const originalOrder = [...profileEditRef.current.draft.visibleBadgeSlugs];
+    pendingBadgeDragRef.current = {
+      slug,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX: event.clientX - bounds.left,
+      offsetY: event.clientY - bounds.top,
+      width: bounds.width,
+      height: bounds.height,
+      originalOrder,
+      currentOrder: [...originalOrder],
+      started: false
+    };
+
+    const handlePointerMove = (pointerEvent: globalThis.PointerEvent) => {
+      const drag = pendingBadgeDragRef.current;
+      if (!drag || drag.pointerId !== pointerEvent.pointerId) {
+        return;
+      }
+
+      if (!drag.started && Math.hypot(pointerEvent.clientX - drag.startX, pointerEvent.clientY - drag.startY) < 5) {
+        return;
+      }
+
+      pointerEvent.preventDefault();
+      drag.started = true;
+      setActiveBadgeDrag({
+        slug: drag.slug,
+        left: pointerEvent.clientX - drag.offsetX,
+        top: pointerEvent.clientY - drag.offsetY,
+        width: drag.width,
+        height: drag.height
+      });
+
+      const currentOrder = drag.currentOrder;
+      const otherBadges = Array.from(badgeGridRef.current?.querySelectorAll<HTMLElement>("[data-badge-slug]") ?? [])
+        .filter((element) => currentOrder.includes(element.dataset.badgeSlug ?? ""))
+        .flatMap((element) => {
+          const badgeSlug = element.dataset.badgeSlug;
+          return badgeSlug && currentOrder.includes(badgeSlug)
+            ? [{ element, slug: badgeSlug }]
+            : [];
+        })
+        .sort((left, right) => currentOrder.indexOf(left.slug) - currentOrder.indexOf(right.slug));
+      const hoveredBadge = getBadgeDropTarget(
+        otherBadges,
+        pointerEvent.clientX - drag.offsetX + drag.width / 2,
+        pointerEvent.clientY - drag.offsetY + drag.height / 2,
+        drag.slug,
+        currentOrder,
+        drag.width,
+        drag.height
+      );
+      if (hoveredBadge) {
+        moveBadgeToIndex(drag.slug, hoveredBadge.targetIndex, false);
+      }
+    };
+
+    const finishPointerDrag = (pointerEvent: globalThis.PointerEvent, cancelled = false) => {
+      const drag = pendingBadgeDragRef.current;
+      if (!drag || drag.pointerId !== pointerEvent.pointerId) {
+        return;
+      }
+
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", finishPointerDrag);
+      window.removeEventListener("pointercancel", handlePointerCancel);
+      if (drag.started) {
+        const currentOrder = drag.currentOrder;
+        const selectedBadges = Array.from(badgeGridRef.current?.querySelectorAll<HTMLElement>("[data-badge-slug]") ?? [])
+          .filter((element) => currentOrder.includes(element.dataset.badgeSlug ?? ""))
+          .flatMap((element) => {
+            const badgeSlug = element.dataset.badgeSlug;
+            return badgeSlug && currentOrder.includes(badgeSlug)
+              ? [{ element, slug: badgeSlug }]
+              : [];
+          })
+          .sort((left, right) => currentOrder.indexOf(left.slug) - currentOrder.indexOf(right.slug));
+        const finalTarget = cancelled ? null : getBadgeDropTarget(
+          selectedBadges,
+          pointerEvent.clientX - drag.offsetX + drag.width / 2,
+          pointerEvent.clientY - drag.offsetY + drag.height / 2,
+          drag.slug,
+          currentOrder,
+          drag.width,
+          drag.height
+        );
+        if (finalTarget) {
+          moveBadgeToIndex(drag.slug, finalTarget.targetIndex, false);
+          setBadgeReorderAnnouncement(`${getBadge(drag.slug).label} moved to position ${finalTarget.targetIndex + 1} of ${currentOrder.length}.`);
+        } else if (currentOrder.some((badgeSlug, index) => badgeSlug !== drag.originalOrder[index])) {
+          captureBadgePositions();
+          dispatchProfileEdit({ type: "restore-badge-order", slugs: drag.originalOrder });
+        }
+
+        suppressBadgeClickRef.current = true;
+        setActiveBadgeDrag(null);
+        window.setTimeout(() => {
+          suppressBadgeClickRef.current = false;
+        }, 0);
+      }
+      pendingBadgeDragRef.current = null;
+    };
+    const handlePointerCancel = (pointerEvent: globalThis.PointerEvent) => finishPointerDrag(pointerEvent, true);
+
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", finishPointerDrag);
+    window.addEventListener("pointercancel", handlePointerCancel);
   }
 
   useLayoutEffect(() => {
@@ -336,13 +564,13 @@ export function ProfileSpace({
       return;
     }
 
-    badgeGridRef.current?.querySelectorAll<HTMLElement>("[data-badge-slug]").forEach((element) => {
+    badgeGridRef.current?.querySelectorAll<HTMLElement>("[data-badge-slug]:not(.badge-tile-wrap-dragging)").forEach((element) => {
       const previousPosition = previousPositions.get(element.dataset.badgeSlug ?? "");
       if (!previousPosition) {
         return;
       }
 
-      const nextPosition = element.getBoundingClientRect();
+      const nextPosition = getBadgeLayoutRect(element);
       const offsetX = previousPosition.left - nextPosition.left;
       const offsetY = previousPosition.top - nextPosition.top;
       if (offsetX === 0 && offsetY === 0) {
@@ -434,7 +662,11 @@ export function ProfileSpace({
         <button className={!isOwner ? "active" : ""} type="button" onClick={() => setViewedAccountId(visitor.id)}>Another profile</button>
       </div>
 
-      <section className="profile-panel panel" data-profile-color={displayCustomization.profilePanelColor}>
+      <section
+        className="profile-panel panel"
+        data-profile-color={displayCustomization.profilePanelColor}
+        style={{ "--profile-edit-field-background": profilePanelBackgrounds[displayCustomization.profilePanelColor] } as CSSProperties}
+      >
         <div
           className="profile-banner"
           data-profile-header-theme={displayCustomization.background}
@@ -574,32 +806,32 @@ export function ProfileSpace({
                   const isSelected = profileEdit.draft.visibleBadgeSlugs.includes(badge.slug);
                   const selectable = isOwner && editing;
                   const selectedIndex = profileEdit.draft.visibleBadgeSlugs.indexOf(badge.slug);
+                  const isBeingDragged = activeBadgeDrag?.slug === badge.slug;
 
                   return (
                     <div
                       key={badge.slug}
-                      className={`badge-tile-wrap${selectable && isSelected ? " badge-tile-wrap-draggable" : ""}`}
+                      className={`badge-tile-wrap${selectable && isSelected ? " badge-tile-wrap-draggable" : ""}${isBeingDragged ? " badge-tile-wrap-dragging" : ""}`}
                       data-badge-slug={badge.slug}
-                      draggable={selectable && isSelected}
-                      onDragStart={(event) => {
-                        if (!selectable || !isSelected) {
-                          event.preventDefault();
-                          return;
-                        }
-                        event.dataTransfer.effectAllowed = "move";
-                        event.dataTransfer.setData("text/plain", badge.slug);
-                      }}
-                      onDragOver={(event) => {
-                        if (selectable && isSelected) {
-                          event.preventDefault();
-                          event.dataTransfer.dropEffect = "move";
+                      onPointerDown={(event) => startBadgePointerDrag(event, badge.slug, isSelected)}
+                      onMouseEnter={() => {
+                        if (editing) {
+                          setHoveredBadgeSlug(badge.slug);
                         }
                       }}
-                      onDrop={(event) => {
-                        event.preventDefault();
-                        const draggedSlug = event.dataTransfer.getData("text/plain");
-                        if (isEarnedBadgeSlug(draggedSlug)) {
-                          moveBadge(draggedSlug, badge.slug);
+                      onMouseLeave={() => {
+                        if (editing) {
+                          setHoveredBadgeSlug(null);
+                        }
+                      }}
+                      onFocusCapture={() => {
+                        if (editing) {
+                          setHoveredBadgeSlug(badge.slug);
+                        }
+                      }}
+                      onBlurCapture={(event) => {
+                        if (editing && !event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                          setHoveredBadgeSlug(null);
                         }
                       }}
                     >
@@ -609,14 +841,19 @@ export function ProfileSpace({
                         aria-label={`${badge.label}: ${badge.description}${selectable ? ` (${isSelected ? "selected" : "not selected"})` : ""}`}
                         aria-pressed={selectable ? isSelected : undefined}
                         onClick={() => {
-                          setActiveBadgeSlug(badge.slug);
-                          setIsBadgePopupClosing(false);
+                          if (suppressBadgeClickRef.current) {
+                            suppressBadgeClickRef.current = false;
+                            return;
+                          }
                           if (selectable) {
                             dispatchProfileEdit({
                               type: "toggle-badge",
                               slug: badge.slug,
                               visible: !isSelected
                             });
+                          } else {
+                            setActiveBadgeSlug(badge.slug);
+                            setIsBadgePopupClosing(false);
                           }
                         }}
                       >
@@ -643,19 +880,38 @@ export function ProfileSpace({
                           </button>
                         </div>
                       ) : null}
-                      {activeBadge?.slug === badge.slug ? (
-                        <div className={`badge-description-popup${isBadgePopupClosing ? " closing" : ""}`} role="status" aria-live="polite">
+                      {(editing ? hoveredBadge?.slug === badge.slug : activeBadge?.slug === badge.slug) ? (
+                        <div className={`badge-description-popup${editing ? " edit-mode" : ""}${isBadgePopupClosing ? " closing" : ""}`} role={editing ? "tooltip" : "status"} aria-live={editing ? undefined : "polite"}>
                           <div>
                             <strong>{badge.label}</strong>
                             <p>{badge.description}</p>
                           </div>
-                          <button type="button" aria-label="Dismiss badge details" onClick={() => setIsBadgePopupClosing(true)}>×</button>
+                          {!editing ? <button type="button" aria-label="Dismiss badge details" onClick={() => setIsBadgePopupClosing(true)}>×</button> : null}
                         </div>
                       ) : null}
                     </div>
                   );
                 })}
             </div>
+            {activeBadgeDrag ? (
+              <div
+                className="badge-drag-overlay"
+                aria-hidden="true"
+                style={{
+                  left: activeBadgeDrag.left,
+                  top: activeBadgeDrag.top,
+                  width: activeBadgeDrag.width,
+                  height: activeBadgeDrag.height
+                }}
+              >
+                {draggedBadge ? (
+                  <div className="badge-tile badge-tile-selectable selected">
+                    <BadgeIcon icon={draggedBadge.icon} category={draggedBadge.category} />
+                    <strong>{draggedBadge.label}</strong>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             {developerCosmeticsPreview && developerCatalogVisible ? (
               <div className="developer-badge-catalog" aria-label="Locked badge catalog">
                 <h3>Locked badge catalog</h3>

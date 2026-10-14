@@ -73,7 +73,7 @@ describe("profile editing", () => {
     const reordered = profileEditReducer(editing, {
       type: "reorder-badge",
       slug: "first-conversation",
-      targetSlug: "one-year"
+      targetIndex: 1
     });
 
     expect(reordered.draft.visibleBadgeSlugs).toEqual([
@@ -85,12 +85,42 @@ describe("profile editing", () => {
     expect(profileEditReducer(reordered, { type: "save" }).saved.visibleBadgeSlugs).toEqual(reordered.draft.visibleBadgeSlugs);
   });
 
+  it("moves a badge to the hovered badge position when dragging forward", () => {
+    const editing = profileEditReducer(createProfileEditState(savedProfile), { type: "open" });
+    const reordered = profileEditReducer(editing, {
+      type: "reorder-badge",
+      slug: "founder",
+      targetIndex: 2
+    });
+    expect(reordered.draft.visibleBadgeSlugs).toEqual([
+      "one-year",
+      "first-post",
+      "founder",
+      "first-conversation"
+    ]);
+  });
+
+  it("restores the original badge order after an invalid drag", () => {
+    const editing = profileEditReducer(createProfileEditState(savedProfile), { type: "open" });
+    const reordered = profileEditReducer(editing, {
+      type: "reorder-badge",
+      slug: "first-conversation",
+      targetIndex: 0
+    });
+    const restored = profileEditReducer(reordered, {
+      type: "restore-badge-order",
+      slugs: [...savedProfile.visibleBadgeSlugs]
+    });
+
+    expect(restored.draft.visibleBadgeSlugs).toEqual(savedProfile.visibleBadgeSlugs);
+  });
+
   it("treats a badge reorder as a profile edit", () => {
     const editing = profileEditReducer(createProfileEditState(savedProfile), { type: "open" });
     const reordered = profileEditReducer(editing, {
       type: "reorder-badge",
       slug: "first-conversation",
-      targetSlug: "one-year"
+      targetIndex: 1
     });
 
     expect(profileEditReducer(reordered, { type: "save" }).saved).not.toBe(editing.saved);
@@ -101,14 +131,19 @@ describe("profile editing", () => {
     expect(profileEditReducer(initial, {
       type: "reorder-badge",
       slug: "one-year",
-      targetSlug: "first-post"
+      targetIndex: 2
     })).toBe(initial);
 
     const editing = profileEditReducer(initial, { type: "open" });
     expect(profileEditReducer(editing, {
       type: "reorder-badge",
       slug: "missing",
-      targetSlug: "first-post"
+      targetIndex: 1
+    })).toBe(editing);
+    expect(profileEditReducer(editing, {
+      type: "reorder-badge",
+      slug: "founder",
+      targetIndex: savedProfile.visibleBadgeSlugs.length
     })).toBe(editing);
   });
 
