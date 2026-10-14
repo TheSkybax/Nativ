@@ -4,7 +4,14 @@ import { useEffect, useReducer, useRef, useState } from "react";
 import { BadgeIcon } from "@/components/badge-icon";
 import {
   getBadge,
-  isProfileColorUnlocked,
+  getLockedProfileBadges,
+  getProfileCosmeticStatus,
+  getVisibleProfileCosmeticOptions,
+  type BackgroundName,
+  type NameColor,
+  type ProfileCosmeticEligibility,
+  type ProfileCosmeticStatus,
+  type ProfileCosmeticUnlock,
   profileCardsColorOptions,
   profileHeaderBackgroundOptions,
   profileNameColorOptions,
@@ -31,55 +38,92 @@ type ProfileAccount = {
 
 type EarnedBadge = BadgeDefinition & { slug: BadgeSlug };
 
-const nameColors = {
+const nameColors: Record<NameColor, string> = {
   nativ: "var(--text-primary)",
-  sunset: "#ffbd7d",
-  ocean: "var(--brand-sky)",
-  rose: "#f2a4c3",
-  forest: "#a4eadb",
-  gold: "#f2d27b"
+  gold: "var(--profile-name-gold)",
+  sage: "var(--profile-name-sage)"
 };
 
-const backgroundStyles = {
-  forest: "linear-gradient(135deg, var(--brand-midnight) 0%, var(--brand-teal-deep) 100%)",
-  sunset: "linear-gradient(135deg, #432a46 0%, #a34e62 100%)",
-  aurora: "linear-gradient(135deg, var(--brand-midnight) 0%, var(--brand-slate-light) 100%)",
-  lavender: "linear-gradient(135deg, var(--brand-navy) 0%, var(--brand-teal-soft) 100%)",
-  founder: "linear-gradient(135deg, #382a1c 0%, #92703a 100%)"
+const backgroundStyles: Record<BackgroundName, string> = {
+  forest: "var(--profile-header-default-gradient)",
+  sunset: "var(--profile-header-sunset-gradient)",
+  aurora: "var(--profile-header-aurora-gradient)",
+  lavender: "var(--profile-header-lavender-gradient)",
+  founder: "var(--profile-header-founder-gradient)",
+  "gradient-red": "var(--profile-header-red-gradient)",
+  "gradient-orange": "var(--profile-header-orange-gradient)",
+  "gradient-yellow": "var(--profile-header-yellow-gradient)",
+  "gradient-green": "var(--profile-header-green-gradient)",
+  "gradient-blue": "var(--profile-header-blue-gradient)",
+  "gradient-purple": "var(--profile-header-purple-gradient)",
+  "gradient-event-preview": "linear-gradient(135deg, #183f4c 0%, #397365 100%)"
 };
 
 function ColorChoiceGroup<T extends string>({
   label,
   options,
   selected,
-  earnedBadgeSlugs,
+  eligibility,
+  developerPreview,
   onSelect
 }: {
   label: string;
   options: readonly ProfileColorOption<T>[];
   selected: T;
-  earnedBadgeSlugs: readonly BadgeSlug[];
-  onSelect: (value: T) => void;
+  eligibility: ProfileCosmeticEligibility;
+  developerPreview: boolean;
+  onSelect: (value: T, status: ProfileCosmeticStatus) => void;
 }) {
+  const visibleOptions = getVisibleProfileCosmeticOptions(options, eligibility, developerPreview);
+
+  function getUnlockDescription(unlock: ProfileCosmeticUnlock | undefined) {
+    if (!unlock) {
+      return "";
+    }
+
+    switch (unlock.method) {
+      case "earned-badge":
+        return `Requires ${getBadge(unlock.badgeSlug).label}`;
+      case "event-eligibility":
+        return "Requires event eligibility";
+      case "free-promotion":
+        return "Requires an explicit free promotion grant";
+      case "account-age":
+        return `Requires an account age of ${unlock.days} days`;
+    }
+  }
+
   return (
     <fieldset className="customization-color-group">
       <legend>{label}</legend>
       <div className="customization-color-options">
-        {options.map((option) => {
-          const unlocked = isProfileColorUnlocked(option, earnedBadgeSlugs);
+        {visibleOptions.map((option) => {
+          const status = getProfileCosmeticStatus(option, eligibility);
+          const unlocked = status === "available";
+          const statusLabel = status === "unreleased" ? "Unreleased" : status === "locked" ? "Locked" : "Available";
+          const unlockDescription = getUnlockDescription(option.unlock);
+          const accessibleStatus = developerPreview
+            ? `, ${statusLabel.toLowerCase()}${unlockDescription ? `; ${unlockDescription}` : ""}`
+            : "";
           return (
             <button
               key={option.value}
-              className="customization-color-option"
+              className={`customization-color-option${developerPreview ? ` is-${status}` : ""}`}
+              data-cosmetic-status={developerPreview ? status : undefined}
               type="button"
-              aria-label={`${option.label}${option.unlockBadge ? `; requires ${getBadge(option.unlockBadge).label}` : ""}`}
+              aria-label={`${option.label}${accessibleStatus}`}
               aria-pressed={selected === option.value}
-              disabled={!unlocked}
-              onClick={() => onSelect(option.value)}
+              disabled={!unlocked && !developerPreview}
+              onClick={() => onSelect(option.value, status)}
             >
               <span className="customization-color-swatch" style={{ background: option.swatch }} aria-hidden="true" />
               <span>{option.label}</span>
-              {option.unlockBadge && !unlocked ? <small>Unlock: {getBadge(option.unlockBadge).label}</small> : null}
+              {developerPreview ? (
+                <>
+                  <small className={`customization-option-status status-${status}`}>{statusLabel}</small>
+                  {unlockDescription ? <small className="customization-option-requirement">{unlockDescription}</small> : null}
+                </>
+              ) : null}
             </button>
           );
         })}
@@ -106,6 +150,8 @@ export function ProfileSpace({
   customization,
   badges,
   visitorBadges,
+  accountAgeDays,
+  developerCosmeticsPreview,
   initialViewedAccountId
 }: {
   owner: ProfileAccount;
@@ -113,12 +159,16 @@ export function ProfileSpace({
   customization: ProfileCustomization;
   badges: EarnedBadge[];
   visitorBadges: EarnedBadge[];
+  accountAgeDays: number;
+  developerCosmeticsPreview: boolean;
   initialViewedAccountId?: string;
 }) {
   const [viewedAccountId, setViewedAccountId] = useState(initialViewedAccountId ?? owner.id);
   const [followerCountExpanded, setFollowerCountExpanded] = useState(false);
   const [isCustomizing, setIsCustomizing] = useState(false);
+  const [developerCatalogVisible, setDeveloperCatalogVisible] = useState(false);
   const [profileCustomization, setProfileCustomization] = useState(customization);
+  const [developerPreviewCustomization, setDeveloperPreviewCustomization] = useState<Partial<ProfileCustomization>>({});
   const customizationPanelRef = useRef<HTMLElement | null>(null);
   const [activeBadgeSlug, setActiveBadgeSlug] = useState<string | null>(null);
   const [isBadgePopupClosing, setIsBadgePopupClosing] = useState(false);
@@ -142,14 +192,44 @@ export function ProfileSpace({
     ? badges
     : displayedBadges;
   const activeBadge = earnedBadges.find((badge) => badge.slug === activeBadgeSlug);
-  const bannerBackground = backgroundStyles[profileCustomization.background];
-  const nameColor = nameColors[profileCustomization.nameColor];
   const earnedBadgeSlugs = earnedBadges.map((badge) => badge.slug);
+  const lockedBadges = getLockedProfileBadges(earnedBadgeSlugs);
+  const cosmeticEligibility: ProfileCosmeticEligibility = {
+    earnedBadgeSlugs,
+    accountAgeDays
+  };
+  const displayCustomization = { ...profileCustomization, ...developerPreviewCustomization };
+  const bannerBackground = backgroundStyles[displayCustomization.background];
+  const nameColor = nameColors[displayCustomization.nameColor];
   const customizationSummary = [
-    { name: getSelectedOptionLabel(profileHeaderBackgroundOptions, profileCustomization.background), descriptor: "theme" },
-    { name: getSelectedOptionLabel(profilePanelColorOptions, profileCustomization.profilePanelColor), descriptor: "profile" },
-    { name: getSelectedOptionLabel(profileCardsColorOptions, profileCustomization.profileCardsColor), descriptor: "panels" }
+    { name: getSelectedOptionLabel(profileHeaderBackgroundOptions, displayCustomization.background), descriptor: "theme" },
+    { name: getSelectedOptionLabel(profilePanelColorOptions, displayCustomization.profilePanelColor), descriptor: "profile" },
+    { name: getSelectedOptionLabel(profileCardsColorOptions, displayCustomization.profileCardsColor), descriptor: "panels" }
   ];
+
+  function chooseCosmetic<K extends keyof ProfileCustomization>(
+    key: K,
+    value: ProfileCustomization[K],
+    status: ProfileCosmeticStatus
+  ) {
+    if (status === "available") {
+      setProfileCustomization((current) => ({ ...current, [key]: value }));
+      setDeveloperPreviewCustomization((current) => {
+        const next = { ...current };
+        delete next[key];
+        return next;
+      });
+      return;
+    }
+
+    setDeveloperPreviewCustomization((current) => ({ ...current, [key]: value }));
+  }
+
+  function finishCustomization() {
+    setIsCustomizing(false);
+    setDeveloperCatalogVisible(false);
+    setDeveloperPreviewCustomization({});
+  }
 
   useEffect(() => {
     if (isCustomizing) {
@@ -203,10 +283,10 @@ export function ProfileSpace({
         <button className={!isOwner ? "active" : ""} type="button" onClick={() => setViewedAccountId(visitor.id)}>Another profile</button>
       </div>
 
-      <section className="profile-panel panel" data-profile-color={profileCustomization.profilePanelColor}>
+      <section className="profile-panel panel" data-profile-color={displayCustomization.profilePanelColor}>
         <div
           className="profile-banner"
-          data-profile-header-theme={profileCustomization.background}
+          data-profile-header-theme={displayCustomization.background}
           style={{ background: bannerBackground }}
         >
           <div className="profile-header">
@@ -244,7 +324,13 @@ export function ProfileSpace({
                     type="button"
                     aria-expanded={isCustomizing}
                     aria-controls="profile-customization"
-                    onClick={() => setIsCustomizing((open) => !open)}
+                    onClick={() => {
+                      if (isCustomizing) {
+                        finishCustomization();
+                      } else {
+                        setIsCustomizing(true);
+                      }
+                    }}
                   >
                     {isCustomizing ? "Done customizing" : "Customize"}
                   </button>
@@ -294,7 +380,7 @@ export function ProfileSpace({
         )}
 
         <div className="profile-content-grid">
-          <section className="profile-about-card panel dark-panel" data-profile-color={profileCustomization.profileCardsColor}>
+          <section className="profile-about-card panel dark-panel" data-profile-color={displayCustomization.profileCardsColor}>
             <div className="profile-section-heading"><h2>About</h2>{isOwner && editing ? <span className="tag">Editing</span> : null}</div>
             {isOwner && editing ? (
               <>
@@ -328,7 +414,7 @@ export function ProfileSpace({
             {isOwner && customization.musicMood !== "none" ? <div className="music-control"><span>♫</span><span>{customization.musicMood} profile music</span><button type="button" aria-label="Play profile music">▶</button></div> : null}
           </section>
 
-          <section className="profile-badges-card panel dark-panel" data-profile-color={profileCustomization.profileCardsColor}>
+          <section className="profile-badges-card panel dark-panel" data-profile-color={displayCustomization.profileCardsColor}>
             <div className="profile-section-heading">
               <h2>Badges</h2>
               <span className="muted">{earnedBadges.length} Total Badges</span>
@@ -377,6 +463,21 @@ export function ProfileSpace({
                   );
                 })}
             </div>
+            {developerCosmeticsPreview && developerCatalogVisible ? (
+              <div className="developer-badge-catalog" aria-label="Locked badge catalog">
+                <h3>Locked badge catalog</h3>
+                <div className="badge-grid">
+                  {lockedBadges.map((badge) => (
+                    <div key={badge.slug} className="badge-tile badge-tile-locked">
+                      <BadgeIcon icon={badge.icon} category={badge.category} />
+                      <strong>{badge.label}</strong>
+                      <small className="developer-badge-description">{badge.description}</small>
+                      <small>Locked</small>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </section>
         </div>
 
@@ -384,7 +485,7 @@ export function ProfileSpace({
           <section
             className={`profile-customization panel dark-panel${isCustomizing ? " is-customizing" : ""}`}
             id="profile-customization"
-            data-profile-color={profileCustomization.profilePanelColor}
+            data-profile-color={displayCustomization.profilePanelColor}
             ref={customizationPanelRef}
           >
             <div className="profile-section-heading">
@@ -392,7 +493,7 @@ export function ProfileSpace({
               <div className="customization-heading-actions">
                 <span className="muted">Earned and chosen</span>
                 {isCustomizing ? (
-                  <button className="profile-action light-action customization-save" type="button" onClick={() => setIsCustomizing(false)}>
+                  <button className="profile-action light-action customization-save" type="button" onClick={finishCustomization}>
                     Save
                   </button>
                 ) : null}
@@ -401,7 +502,7 @@ export function ProfileSpace({
             <div className="customization-preview-row">
               <div
                 className="customization-header-preview"
-                data-profile-header-theme={profileCustomization.background}
+                data-profile-header-theme={displayCustomization.background}
                 style={{ background: bannerBackground }}
               >
                 <div className="customization-header-identity">
@@ -421,37 +522,66 @@ export function ProfileSpace({
             </div>
             {isCustomizing ? (
               <>
-                <div className="customization-color-groups">
+                {developerCosmeticsPreview ? (
+                  <button
+                    className="profile-action subtle-action developer-catalog-toggle"
+                    type="button"
+                    aria-expanded={developerCatalogVisible}
+                    aria-controls="developer-cosmetic-catalog"
+                    onClick={() => {
+                      if (developerCatalogVisible) {
+                        setDeveloperPreviewCustomization({});
+                      }
+                      setDeveloperCatalogVisible(!developerCatalogVisible);
+                    }}
+                  >
+                    {developerCatalogVisible ? "Hide locked options and badges" : "Show locked options and badges"}
+                  </button>
+                ) : null}
+                <div className="customization-color-groups" id="developer-cosmetic-catalog">
                   <ColorChoiceGroup
                     label="Profile name"
                     options={profileNameColorOptions}
-                    selected={profileCustomization.nameColor}
-                    earnedBadgeSlugs={earnedBadgeSlugs}
-                    onSelect={(nameColor) => setProfileCustomization((current) => ({ ...current, nameColor }))}
+                    selected={displayCustomization.nameColor}
+                    eligibility={cosmeticEligibility}
+                    developerPreview={developerCosmeticsPreview && developerCatalogVisible}
+                    onSelect={(nameColor, status) => chooseCosmetic("nameColor", nameColor, status)}
                   />
                   <ColorChoiceGroup
-                    label="Profile header gradient and buttons"
+                    label="Profile header color and buttons"
                     options={profileHeaderBackgroundOptions}
-                    selected={profileCustomization.background}
-                    earnedBadgeSlugs={earnedBadgeSlugs}
-                    onSelect={(background) => setProfileCustomization((current) => ({ ...current, background }))}
+                    selected={displayCustomization.background}
+                    eligibility={cosmeticEligibility}
+                    developerPreview={developerCosmeticsPreview && developerCatalogVisible}
+                    onSelect={(background, status) => chooseCosmetic("background", background, status)}
                   />
                   <ColorChoiceGroup
                     label="Main profile panel"
                     options={profilePanelColorOptions}
-                    selected={profileCustomization.profilePanelColor}
-                    earnedBadgeSlugs={earnedBadgeSlugs}
-                    onSelect={(profilePanelColor) => setProfileCustomization((current) => ({ ...current, profilePanelColor }))}
+                    selected={displayCustomization.profilePanelColor}
+                    eligibility={cosmeticEligibility}
+                    developerPreview={developerCosmeticsPreview && developerCatalogVisible}
+                    onSelect={(profilePanelColor, status) => chooseCosmetic("profilePanelColor", profilePanelColor, status)}
                   />
                   <ColorChoiceGroup
                     label="About and Badges panels"
                     options={profileCardsColorOptions}
-                    selected={profileCustomization.profileCardsColor}
-                    earnedBadgeSlugs={earnedBadgeSlugs}
-                    onSelect={(profileCardsColor) => setProfileCustomization((current) => ({ ...current, profileCardsColor }))}
+                    selected={displayCustomization.profileCardsColor}
+                    eligibility={cosmeticEligibility}
+                    developerPreview={developerCosmeticsPreview && developerCatalogVisible}
+                    onSelect={(profileCardsColor, status) => chooseCosmetic("profileCardsColor", profileCardsColor, status)}
                   />
                 </div>
-                <p className="customization-demo-note">Badge-locked colors use this demo profile’s earned badges. Changes reset when the page is refreshed.</p>
+                {developerCosmeticsPreview && developerCatalogVisible ? (
+                  <div className="customization-developer-preview" role="status">
+                    <strong>Local developer catalog preview</strong>
+                    <span>Available choices update this page only. Locked and unreleased choices are temporary visual previews; they do not unlock cosmetics or award rewards.</span>
+                    {Object.keys(developerPreviewCustomization).length > 0 ? (
+                      <button type="button" className="text-button" onClick={() => setDeveloperPreviewCustomization({})}>Clear temporary previews</button>
+                    ) : null}
+                  </div>
+                ) : null}
+                <p className="customization-demo-note">Earned cosmetics use the current demo profile’s eligibility. Changes reset when the page is refreshed.</p>
               </>
             ) : null}
           </section>

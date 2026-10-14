@@ -4,7 +4,9 @@ import { PageAdRails } from "@/components/page-ad-rails";
 import { demoBadgeAsOf, demoBadgeAssignments, demoProfileCustomization, demoUsers } from "@/lib/demo-data";
 import {
   buildProfileCustomization,
-  getProfileBadges
+  getAccountAgeDays,
+  getProfileBadges,
+  isDeveloperCosmeticsPreviewEnabled
 } from "@/lib/personalization";
 
 export default async function ProfilePage({
@@ -28,6 +30,10 @@ export default async function ProfilePage({
     posts: 42
   };
   const demoNow = new Date(demoBadgeAsOf);
+  const developerCosmeticsPreview = isDeveloperCosmeticsPreviewEnabled(
+    process.env.NODE_ENV,
+    process.env.NATIV_PROFILE_COSMETICS_PREVIEW
+  );
   const badges = getProfileBadges({
     createdAt: owner.createdAt,
     postCount: owner.posts,
@@ -49,6 +55,8 @@ export default async function ProfilePage({
           customization={customization}
           badges={badges}
           visitorBadges={visitorBadges}
+          accountAgeDays={getAccountAgeDays(owner.createdAt, demoNow)}
+          developerCosmeticsPreview={developerCosmeticsPreview}
           initialViewedAccountId={params.user === visitor.id ? visitor.id : owner.id}
         />
       </PageAdRails>

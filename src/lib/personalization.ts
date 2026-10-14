@@ -1,9 +1,28 @@
 export type ThemeName = "forest" | "aurora" | "midnight" | "sunset" | "lilac";
-export type BackgroundName = "forest" | "sunset" | "aurora" | "lavender" | "founder";
+export type BackgroundName =
+  | "forest"
+  | "sunset"
+  | "aurora"
+  | "lavender"
+  | "founder"
+  | `gradient-${BasicColorFamily}`
+  | "gradient-event-preview";
 export type MusicMood = "ambient" | "indie" | "lofi" | "acoustic" | "none";
-export type NameColor = "nativ" | "sunset" | "ocean" | "rose" | "forest" | "gold";
-export type ProfilePanelColor = "default" | "ocean" | "forest" | "rose" | "midnight";
-export type ProfileCardsColor = "default" | "ocean" | "forest" | "rose" | "plum";
+export type NameColor = "nativ" | "gold" | "sage";
+export type ProfilePanelColor =
+  | "default"
+  | `${BasicColorFamily}-${PanelColorTreatment}`
+  | "midnight"
+  | "promotion-preview";
+export type ProfileCardsColor =
+  | "default"
+  | `${BasicColorFamily}-${PanelColorTreatment}`
+  | "plum"
+  | "promotion-preview";
+
+export const basicColorFamilies = ["red", "orange", "yellow", "green", "blue", "purple"] as const;
+export type BasicColorFamily = (typeof basicColorFamilies)[number];
+export type PanelColorTreatment = "tint" | "solid";
 
 export type ProfileCustomization = {
   nameColor: NameColor;
@@ -141,51 +160,159 @@ export const badgeCatalog = [
 export type BadgeSlug = (typeof badgeCatalog)[number]["slug"];
 type CatalogBadge = (typeof badgeCatalog)[number];
 
+export type ProfileCosmeticUnlock =
+  | { method: "earned-badge"; badgeSlug: BadgeSlug }
+  | { method: "event-eligibility"; eventId: string }
+  | { method: "free-promotion"; grantId: string }
+  | { method: "account-age"; days: number };
+
+export type ProfileCosmeticStatus = "available" | "locked" | "unreleased";
+
+export type ProfileCosmeticEligibility = {
+  earnedBadgeSlugs: readonly BadgeSlug[];
+  eligibleEventIds?: readonly string[];
+  freePromotionGrantIds?: readonly string[];
+  accountAgeDays?: number;
+};
+
 export type ProfileColorOption<T extends string> = {
   value: T;
   label: string;
   swatch: string;
-  unlockBadge?: BadgeSlug;
+  treatment?: "default" | "tint" | "solid" | "gradient";
+  unlock?: ProfileCosmeticUnlock;
+  unreleased?: boolean;
 };
 
 export const profileNameColorOptions: readonly ProfileColorOption<NameColor>[] = [
-  { value: "nativ", label: "Nativ", swatch: "#ffffff" },
-  { value: "sunset", label: "Sunset", swatch: "#ffbd7d" },
-  { value: "ocean", label: "Ocean", swatch: "#92c8df" },
-  { value: "rose", label: "Rose", swatch: "#f2a4c3" },
-  { value: "forest", label: "Forest", swatch: "#a4eadb" },
-  { value: "gold", label: "Founder Gold", swatch: "#f2d27b", unlockBadge: "founder" }
+  { value: "nativ", label: "Nativ", swatch: "var(--text-primary)", treatment: "default" },
+  { value: "gold", label: "Founder Gold", swatch: "var(--profile-name-gold)", unlock: { method: "earned-badge", badgeSlug: "founder" } },
+  { value: "sage", label: "One-Year Sage", swatch: "var(--profile-name-sage)", unlock: { method: "account-age", days: 365 } }
 ];
+
+const headerGradientNames: Record<BasicColorFamily, string> = {
+  red: "Crimson Current",
+  orange: "Citrus Ember",
+  yellow: "Golden Hour",
+  green: "Verdant Tide",
+  blue: "Azure Drift",
+  purple: "Amethyst Haze"
+};
+
+const panelTintNames: Record<BasicColorFamily, string> = {
+  red: "Crimson Mist",
+  orange: "Citrus Glow",
+  yellow: "Golden Veil",
+  green: "Verdant Mist",
+  blue: "Azure Mist",
+  purple: "Amethyst Mist"
+};
+
+const panelSolidNames: Record<BasicColorFamily, string> = {
+  red: "Crimson Velvet",
+  orange: "Citrus Clay",
+  yellow: "Golden Ochre",
+  green: "Verdant Grove",
+  blue: "Azure Slate",
+  purple: "Amethyst Stone"
+};
 
 export const profileHeaderBackgroundOptions: readonly ProfileColorOption<BackgroundName>[] = [
-  { value: "forest", label: "Nativ", swatch: "linear-gradient(135deg, var(--brand-midnight), var(--brand-teal-deep))" },
-  { value: "sunset", label: "Sunset", swatch: "linear-gradient(135deg, #432a46, #a34e62)" },
-  { value: "aurora", label: "Aurora", swatch: "linear-gradient(135deg, var(--brand-midnight), var(--brand-slate-light))" },
-  { value: "lavender", label: "Lavender", swatch: "linear-gradient(135deg, var(--brand-navy), var(--brand-teal-soft))" },
-  { value: "founder", label: "Founder Gold", swatch: "linear-gradient(135deg, #382a1c, #92703a)", unlockBadge: "founder" }
+  { value: "forest", label: "Nativ", swatch: "var(--profile-header-default-gradient)", treatment: "default" },
+  { value: "sunset", label: "Sunset", swatch: "var(--profile-header-sunset-gradient)", treatment: "gradient" },
+  { value: "aurora", label: "Aurora", swatch: "var(--profile-header-aurora-gradient)", treatment: "gradient" },
+  { value: "lavender", label: "Lavender", swatch: "var(--profile-header-lavender-gradient)", treatment: "gradient" },
+  { value: "founder", label: "Founder Gold", swatch: "var(--profile-header-founder-gradient)", treatment: "gradient", unlock: { method: "earned-badge", badgeSlug: "founder" } },
+  ...basicColorFamilies.map((family) => ({
+    value: `gradient-${family}` as const,
+    label: `${headerGradientNames[family]} (${family[0].toUpperCase()}${family.slice(1)} Gradient)`,
+    swatch: `var(--profile-header-${family}-gradient)`,
+    treatment: "gradient" as const
+  })),
+  { value: "gradient-event-preview", label: "Launch Event Gradient", swatch: "linear-gradient(135deg, #183f4c, #397365)", treatment: "gradient", unlock: { method: "event-eligibility", eventId: "nativ-launch" }, unreleased: true }
 ];
 
+const basicPanelColorOptions: readonly ProfileColorOption<`${BasicColorFamily}-${PanelColorTreatment}`>[] =
+  basicColorFamilies.flatMap((family) => ([
+    {
+      value: `${family}-tint` as `${BasicColorFamily}-tint`,
+      label: `${panelTintNames[family]} (${family[0].toUpperCase()}${family.slice(1)} Tint)`,
+      swatch: `var(--profile-panel-${family}-tint)`,
+      treatment: "tint" as const
+    },
+    {
+      value: `${family}-solid` as `${BasicColorFamily}-solid`,
+      label: `${panelSolidNames[family]} (${family[0].toUpperCase()}${family.slice(1)} Solid)`,
+      swatch: `var(--profile-panel-${family}-solid)`,
+      treatment: "solid" as const
+    }
+  ]));
+
+const defaultPanelColorOption: ProfileColorOption<"default"> = {
+  value: "default",
+  label: "Nativ",
+  swatch: "var(--surface-primary)",
+  treatment: "default"
+};
+
 export const profilePanelColorOptions: readonly ProfileColorOption<ProfilePanelColor>[] = [
-  { value: "default", label: "Nativ", swatch: "var(--surface-primary)" },
-  { value: "ocean", label: "Ocean", swatch: "#34758f" },
-  { value: "forest", label: "Forest", swatch: "#46735d" },
-  { value: "rose", label: "Rose", swatch: "#835b71" },
-  { value: "midnight", label: "Founding Midnight", swatch: "#365276", unlockBadge: "founding-member" }
+  defaultPanelColorOption,
+  ...basicPanelColorOptions,
+  { value: "midnight", label: "Founding Midnight", swatch: "#365276", treatment: "solid", unlock: { method: "earned-badge", badgeSlug: "founding-member" } },
+  { value: "promotion-preview", label: "Community Thank-You Tint", swatch: "var(--profile-panel-green-tint)", treatment: "tint", unlock: { method: "free-promotion", grantId: "community-thank-you" }, unreleased: true }
 ];
 
 export const profileCardsColorOptions: readonly ProfileColorOption<ProfileCardsColor>[] = [
-  { value: "default", label: "Nativ", swatch: "var(--surface-secondary)" },
-  { value: "ocean", label: "Ocean", swatch: "#347c7c" },
-  { value: "forest", label: "Forest", swatch: "#53775d" },
-  { value: "rose", label: "Rose", swatch: "#865d75" },
-  { value: "plum", label: "Supporter Plum", swatch: "#735e94", unlockBadge: "early-supporter" }
+  defaultPanelColorOption,
+  ...basicPanelColorOptions,
+  { value: "plum", label: "Supporter Plum", swatch: "#735e94", treatment: "solid", unlock: { method: "earned-badge", badgeSlug: "early-supporter" } },
+  { value: "promotion-preview", label: "Community Thank-You Tint", swatch: "var(--profile-panel-green-tint)", treatment: "tint", unlock: { method: "free-promotion", grantId: "community-thank-you" }, unreleased: true }
 ];
+
+export function getProfileCosmeticStatus(
+  option: ProfileColorOption<string>,
+  eligibility: ProfileCosmeticEligibility
+): ProfileCosmeticStatus {
+  if (option.unreleased) {
+    return "unreleased";
+  }
+
+  const unlock = option.unlock;
+  const unlocked = !unlock
+    || (unlock.method === "earned-badge" && eligibility.earnedBadgeSlugs.includes(unlock.badgeSlug))
+    || (unlock.method === "event-eligibility" && eligibility.eligibleEventIds?.includes(unlock.eventId) === true)
+    || (unlock.method === "free-promotion" && eligibility.freePromotionGrantIds?.includes(unlock.grantId) === true)
+    || (unlock.method === "account-age" && (eligibility.accountAgeDays ?? 0) >= unlock.days);
+
+  return unlocked ? "available" : "locked";
+}
+
+export function getLockedProfileBadges(earnedBadgeSlugs: readonly BadgeSlug[]): CatalogBadge[] {
+  return badgeCatalog.filter((badge) => !earnedBadgeSlugs.includes(badge.slug));
+}
+
+export function getVisibleProfileCosmeticOptions<T extends string>(
+  options: readonly ProfileColorOption<T>[],
+  eligibility: ProfileCosmeticEligibility,
+  includePreviewOptions = false
+): readonly ProfileColorOption<T>[] {
+  return includePreviewOptions
+    ? options
+    : options.filter((option) => getProfileCosmeticStatus(option, eligibility) === "available");
+}
+
+export function isDeveloperCosmeticsPreviewEnabled(
+  nodeEnvironment: string | undefined,
+  previewFlag: string | undefined
+) {
+  return nodeEnvironment === "development" && previewFlag === "1";
+}
 
 export function isProfileColorUnlocked(
   option: ProfileColorOption<string>,
-  earnedBadgeSlugs: readonly BadgeSlug[]
+  eligibility: ProfileCosmeticEligibility
 ) {
-  return !option.unlockBadge || earnedBadgeSlugs.includes(option.unlockBadge);
+  return getProfileCosmeticStatus(option, eligibility) === "available";
 }
 
 export const badgeEligibility: Record<BadgeSlug, BadgeEligibilityRule> = {
@@ -277,6 +404,15 @@ export function getAccountAgeBadges(createdAt: string, now = new Date()): Catalo
   }
 
   return badges;
+}
+
+export function getAccountAgeDays(createdAt: string, now = new Date()): number {
+  const created = Date.parse(createdAt);
+  if (Number.isNaN(created) || created > now.getTime()) {
+    return 0;
+  }
+
+  return Math.floor((now.getTime() - created) / 86_400_000);
 }
 
 export function getPostMilestoneBadges(postCount: number): CatalogBadge[] {

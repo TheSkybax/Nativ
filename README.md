@@ -62,4 +62,15 @@ Comment demo thresholds are 50 comments for Active Conversationalist and 250 for
 
 ### Profile color customization
 
-Profile owners can preview the name text color, the full profile header gradient behind the avatar, name, and action buttons, the main profile panel color, and the shared About/Badges panel color. Header button colors are coordinated with the selected gradient. Founder unlocks Founder Gold name text and header gradient, Founding Member unlocks Founding Midnight, and Early Supporter unlocks Supporter Plum. These unlocks use the profile's earned demo badges, and color choices reset on refresh because profile customization is not persisted yet.
+Profile owners can preview the site-default name style or earned-only name colors, choose the Nativ header or one of six color-named gradients, and customize the main profile and About/Badges panels independently. Panels provide a subtle tint and a stronger solid treatment for red, orange, yellow, green, blue, and purple, using color-family names such as Crimson Mist and Crimson Velvet. Header/action-button and panel colors adapt to the active light or dark theme. Founder Gold, Founding Midnight, and Supporter Plum remain badge-gated; One-Year Sage uses an account-age milestone.
+
+Normal customization hides locked and unreleased cosmetics. The current demo profile uses explicit badge assignments and a fixed demo date; eligibility and all selections are prototype-only, and changes reset on refresh. Event eligibility and explicit free-promotion grants are represented in the catalog model, but no event or promotion grant system is connected. Cosmetics are not purchasable.
+
+To inspect the full catalog locally, set `NATIV_PROFILE_COSMETICS_PREVIEW=1` in the development shell before starting Next.js. In PowerShell:
+
+```powershell
+$env:NATIV_PROFILE_COSMETICS_PREVIEW = "1"
+npm run dev
+```
+
+This preview is enabled only when `NODE_ENV` is `development`. In the profile's Customize panel, use **Show locked options and badges** to reveal or hide locked/released cosmetic entries and unearned badges. Locked and unreleased colors can be applied as temporary visual previews; hiding the catalog or leaving customization clears those previews. The flag is server-checked, and no production API or reward bypass is provided.
