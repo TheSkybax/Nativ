@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { BadgeIcon } from "@/components/badge-icon";
 import { useProfileAppearance } from "@/components/profile-appearance-provider";
 import { VerifiedSeal } from "@/components/verified-seal";
@@ -46,6 +46,16 @@ type EarnedBadge = BadgeDefinition & { slug: BadgeSlug };
 type ProfilePostFilter = "posts" | "reposts" | "all";
 
 const PROFILE_POSTS_PAGE_SIZE = 5;
+
+function orderBadgesBySlugs(badges: EarnedBadge[], orderedSlugs: readonly string[]) {
+  const badgesBySlug = new Map<string, EarnedBadge>(badges.map((badge) => [badge.slug, badge]));
+  const ordered = orderedSlugs.flatMap((slug) => {
+    const badge = badgesBySlug.get(slug);
+    return badge ? [badge] : [];
+  });
+  const orderedSet = new Set(ordered.map((badge) => badge.slug));
+  return [...ordered, ...badges.filter((badge) => !orderedSet.has(badge.slug))];
+}
 
 const backgroundStyles: Record<BackgroundName, string> = {
   forest: "var(--profile-header-default-gradient)",
@@ -194,6 +204,9 @@ export function ProfileSpace({
   const [profilePostFilter, setProfilePostFilter] = useState<ProfilePostFilter>("all");
   const [visibleProfilePostCount, setVisibleProfilePostCount] = useState(PROFILE_POSTS_PAGE_SIZE);
   const customizationPanelRef = useRef<HTMLElement | null>(null);
+  const badgeGridRef = useRef<HTMLDivElement | null>(null);
+  const previousBadgePositionsRef = useRef<Map<string, DOMRect> | null>(null);
+  const [badgeReorderAnnouncement, setBadgeReorderAnnouncement] = useState("");
   const postMutations = usePostMutations();
   const [activeBadgeSlug, setActiveBadgeSlug] = useState<string | null>(null);
   const [isBadgePopupClosing, setIsBadgePopupClosing] = useState(false);
@@ -211,10 +224,10 @@ export function ProfileSpace({
   const account = isOwner ? { ...owner, ...profileEdit.saved } : visitor;
   const earnedBadges = isOwner ? badges : visitorBadges;
   const displayedBadges = isOwner
-    ? badges.filter((badge) => profileEdit.saved.visibleBadgeSlugs.includes(badge.slug))
+    ? orderBadgesBySlugs(badges.filter((badge) => profileEdit.saved.visibleBadgeSlugs.includes(badge.slug)), profileEdit.saved.visibleBadgeSlugs)
     : visitorBadges;
   const profileBadges = isOwner && editing
-    ? badges
+    ? orderBadgesBySlugs(badges, profileEdit.draft.visibleBadgeSlugs)
     : displayedBadges;
   const filteredProfilePosts = profilePosts
     .map((post) => postMutations.resolvePost(post))
@@ -274,6 +287,77 @@ export function ProfileSpace({
     setProfilePostFilter(filter);
     setVisibleProfilePostCount(PROFILE_POSTS_PAGE_SIZE);
   }
+
+  function captureBadgePositions() {
+    const grid = badgeGridRef.current;
+    if (!grid) {
+      return;
+    }
+
+    previousBadgePositionsRef.current = new Map(
+      Array.from(grid.querySelectorAll<HTMLElement>("[data-badge-slug]"))
+        .flatMap((element) => element.dataset.badgeSlug
+          ? [[element.dataset.badgeSlug, element.getBoundingClientRect()] as const]
+          : [])
+    );
+  }
+
+  function isEarnedBadgeSlug(slug: string): slug is BadgeSlug {
+    return badges.some((badge) => badge.slug === slug);
+  }
+
+  function moveBadge(slug: BadgeSlug, targetSlug: BadgeSlug) {
+    if (slug === targetSlug || !profileEdit.draft.visibleBadgeSlugs.includes(slug) || !profileEdit.draft.visibleBadgeSlugs.includes(targetSlug)) {
+      return;
+    }
+
+    captureBadgePositions();
+    const orderedSlugs = [...profileEdit.draft.visibleBadgeSlugs];
+    const fromIndex = orderedSlugs.indexOf(slug);
+    const targetIndex = orderedSlugs.indexOf(targetSlug);
+    orderedSlugs.splice(fromIndex, 1);
+    orderedSlugs.splice(targetIndex, 0, slug);
+    dispatchProfileEdit({ type: "reorder-badge", slug, targetSlug });
+    setBadgeReorderAnnouncement(`${getBadge(slug).label} moved to position ${targetIndex + 1} of ${orderedSlugs.length}.`);
+  }
+
+  function moveBadgeByOffset(slug: BadgeSlug, offset: -1 | 1) {
+    const currentIndex = profileEdit.draft.visibleBadgeSlugs.indexOf(slug);
+    const targetSlug = profileEdit.draft.visibleBadgeSlugs[currentIndex + offset];
+    if (targetSlug && isEarnedBadgeSlug(targetSlug)) {
+      moveBadge(slug, targetSlug);
+    }
+  }
+
+  useLayoutEffect(() => {
+    const previousPositions = previousBadgePositionsRef.current;
+    previousBadgePositionsRef.current = null;
+    if (!previousPositions || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+
+    badgeGridRef.current?.querySelectorAll<HTMLElement>("[data-badge-slug]").forEach((element) => {
+      const previousPosition = previousPositions.get(element.dataset.badgeSlug ?? "");
+      if (!previousPosition) {
+        return;
+      }
+
+      const nextPosition = element.getBoundingClientRect();
+      const offsetX = previousPosition.left - nextPosition.left;
+      const offsetY = previousPosition.top - nextPosition.top;
+      if (offsetX === 0 && offsetY === 0) {
+        return;
+      }
+
+      element.animate(
+        [
+          { transform: `translate(${offsetX}px, ${offsetY}px)` },
+          { transform: "translate(0, 0)" }
+        ],
+        { duration: 260, easing: "cubic-bezier(0.2, 0.75, 0.25, 1)" }
+      );
+    });
+  }, [profileEdit.draft.visibleBadgeSlugs]);
 
   function repostProfilePost(originalPost: FeedPost) {
     setProfilePosts((currentPosts) => {
@@ -477,16 +561,48 @@ export function ProfileSpace({
               <span className="muted">{earnedBadges.length} Total Badges</span>
             </div>
             <p className="badge-demo-note">Demo account dates, post totals, and badge assignments; event tracking is not connected.</p>
-            {isOwner && editing ? <p className="badge-edit-hint">Select the badges you want to show on your profile.</p> : null}
-            <div className="badge-grid">
+            {isOwner && editing ? (
+              <>
+                <p className="badge-edit-hint">Select badges to display, then drag selected badges to reorder them.</p>
+                <p className="sr-only" aria-live="polite">{badgeReorderAnnouncement}</p>
+              </>
+            ) : null}
+            <div className="badge-grid" ref={badgeGridRef}>
               {profileBadges
                 .filter((badge) => !isOwner || editing || profileEdit.saved.visibleBadgeSlugs.includes(badge.slug))
                 .map((badge) => {
                   const isSelected = profileEdit.draft.visibleBadgeSlugs.includes(badge.slug);
                   const selectable = isOwner && editing;
+                  const selectedIndex = profileEdit.draft.visibleBadgeSlugs.indexOf(badge.slug);
 
                   return (
-                    <div key={badge.slug} className="badge-tile-wrap">
+                    <div
+                      key={badge.slug}
+                      className={`badge-tile-wrap${selectable && isSelected ? " badge-tile-wrap-draggable" : ""}`}
+                      data-badge-slug={badge.slug}
+                      draggable={selectable && isSelected}
+                      onDragStart={(event) => {
+                        if (!selectable || !isSelected) {
+                          event.preventDefault();
+                          return;
+                        }
+                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.setData("text/plain", badge.slug);
+                      }}
+                      onDragOver={(event) => {
+                        if (selectable && isSelected) {
+                          event.preventDefault();
+                          event.dataTransfer.dropEffect = "move";
+                        }
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const draggedSlug = event.dataTransfer.getData("text/plain");
+                        if (isEarnedBadgeSlug(draggedSlug)) {
+                          moveBadge(draggedSlug, badge.slug);
+                        }
+                      }}
+                    >
                       <button
                         className={`badge-tile ${selectable ? "badge-tile-selectable" : "badge-tile-informative"} ${selectable && isSelected ? "selected" : ""}`}
                         type="button"
@@ -507,6 +623,26 @@ export function ProfileSpace({
                         <BadgeIcon icon={badge.icon} category={badge.category} />
                         <strong>{badge.label}</strong>
                       </button>
+                      {selectable && isSelected ? (
+                        <div className="badge-reorder-actions" aria-label={`Reorder ${badge.label}`}>
+                          <button
+                            type="button"
+                            aria-label={`Move ${badge.label} earlier`}
+                            disabled={selectedIndex === 0}
+                            onClick={() => moveBadgeByOffset(badge.slug, -1)}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Move ${badge.label} later`}
+                            disabled={selectedIndex === profileEdit.draft.visibleBadgeSlugs.length - 1}
+                            onClick={() => moveBadgeByOffset(badge.slug, 1)}
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      ) : null}
                       {activeBadge?.slug === badge.slug ? (
                         <div className={`badge-description-popup${isBadgePopupClosing ? " closing" : ""}`} role="status" aria-live="polite">
                           <div>

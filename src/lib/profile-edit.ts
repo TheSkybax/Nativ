@@ -14,6 +14,7 @@ export type ProfileEditAction =
   | { type: "open" }
   | { type: "change"; field: "displayName" | "bio"; value: string }
   | { type: "toggle-badge"; slug: string; visible: boolean }
+  | { type: "reorder-badge"; slug: string; targetSlug: string }
   | { type: "save" }
   | { type: "cancel" };
 
@@ -58,6 +59,25 @@ export function profileEditReducer(state: ProfileEditState, action: ProfileEditA
             : state.draft.visibleBadgeSlugs.filter((slug) => slug !== action.slug)
         }
       };
+    case "reorder-badge": {
+      if (!state.editing || action.slug === action.targetSlug) {
+        return state;
+      }
+
+      const fromIndex = state.draft.visibleBadgeSlugs.indexOf(action.slug);
+      const targetIndex = state.draft.visibleBadgeSlugs.indexOf(action.targetSlug);
+      if (fromIndex < 0 || targetIndex < 0) {
+        return state;
+      }
+
+      const visibleBadgeSlugs = [...state.draft.visibleBadgeSlugs];
+      visibleBadgeSlugs.splice(fromIndex, 1);
+      visibleBadgeSlugs.splice(targetIndex, 0, action.slug);
+      return {
+        ...state,
+        draft: { ...state.draft, visibleBadgeSlugs }
+      };
+    }
     case "save": {
       if (!state.editing) {
         return state;
@@ -67,7 +87,7 @@ export function profileEditReducer(state: ProfileEditState, action: ProfileEditA
         state.draft.displayName === state.saved.displayName &&
         state.draft.bio === state.saved.bio &&
         state.draft.visibleBadgeSlugs.length === state.saved.visibleBadgeSlugs.length &&
-        state.draft.visibleBadgeSlugs.every((slug) => state.saved.visibleBadgeSlugs.includes(slug));
+        state.draft.visibleBadgeSlugs.every((slug, index) => slug === state.saved.visibleBadgeSlugs[index]);
       const saved = unchanged ? state.saved : state.draft;
 
       return {

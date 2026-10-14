@@ -1245,6 +1245,18 @@ textarea {
   margin-top: 14px;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+  border: 0;
+}
+
 .badge-edit-hint {
   margin-top: 10px;
   color: var(--muted);
@@ -1290,6 +1302,52 @@ textarea {
 .badge-tile-wrap {
   position: relative;
   min-width: 0;
+}
+
+.badge-tile-wrap-draggable {
+  cursor: grab;
+}
+
+.badge-tile-wrap-draggable:active {
+  cursor: grabbing;
+}
+
+.badge-reorder-actions {
+  position: absolute;
+  z-index: 1;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 3px;
+}
+
+.badge-reorder-actions button {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.badge-reorder-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.badge-reorder-actions button:focus-visible {
+  outline: 2px solid var(--brand-teal-bright);
+  outline-offset: 2px;
+}
+
+.badge-tile-selectable.selected {
+  padding-top: 30px;
 }
 
 .profile-badges-card {

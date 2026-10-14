@@ -68,6 +68,50 @@ describe("profile editing", () => {
     });
   });
 
+  it("reorders visible badges in the draft and saves the new order", () => {
+    const editing = profileEditReducer(createProfileEditState(savedProfile), { type: "open" });
+    const reordered = profileEditReducer(editing, {
+      type: "reorder-badge",
+      slug: "first-conversation",
+      targetSlug: "one-year"
+    });
+
+    expect(reordered.draft.visibleBadgeSlugs).toEqual([
+      "founder",
+      "first-conversation",
+      "one-year",
+      "first-post"
+    ]);
+    expect(profileEditReducer(reordered, { type: "save" }).saved.visibleBadgeSlugs).toEqual(reordered.draft.visibleBadgeSlugs);
+  });
+
+  it("treats a badge reorder as a profile edit", () => {
+    const editing = profileEditReducer(createProfileEditState(savedProfile), { type: "open" });
+    const reordered = profileEditReducer(editing, {
+      type: "reorder-badge",
+      slug: "first-conversation",
+      targetSlug: "one-year"
+    });
+
+    expect(profileEditReducer(reordered, { type: "save" }).saved).not.toBe(editing.saved);
+  });
+
+  it("ignores badge reorders when not editing or when either badge is hidden", () => {
+    const initial = createProfileEditState(savedProfile);
+    expect(profileEditReducer(initial, {
+      type: "reorder-badge",
+      slug: "one-year",
+      targetSlug: "first-post"
+    })).toBe(initial);
+
+    const editing = profileEditReducer(initial, { type: "open" });
+    expect(profileEditReducer(editing, {
+      type: "reorder-badge",
+      slug: "missing",
+      targetSlug: "first-post"
+    })).toBe(editing);
+  });
+
   it("discards badge display changes when cancelled", () => {
     const editing = profileEditReducer(createProfileEditState(savedProfile), { type: "open" });
     const hiddenBadge = profileEditReducer(editing, {
