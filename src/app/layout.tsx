@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PostMutationsProvider } from "@/components/post-mutations-provider";
 import { ProfileAppearanceProvider } from "@/components/profile-appearance-provider";
+import { RootBackground } from "@/components/root-background";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,6 +16,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <ProfileAppearanceProvider>
           <PostMutationsProvider>{children}</PostMutationsProvider>
         </ProfileAppearanceProvider>
+        <RootBackground />
       </body>
     </html>
   );

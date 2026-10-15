@@ -104,8 +104,17 @@ textarea {
 }
 
 .app-shell {
+  position: relative;
+  z-index: 1;
   width: min(1400px, calc(100vw - 32px));
   margin: 32px auto;
+}
+
+.root-background {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
 }
 
 .topbar {
