@@ -2127,10 +2127,8 @@ textarea {
   width: 38px;
   height: 38px;
   flex: 0 0 auto;
-  padding: 6px;
-  border: 1px solid rgba(57, 197, 178, 0.35);
   border-radius: 12px;
-  background: var(--brand-midnight);
+  object-fit: contain;
 }
 
 .nativ-logo-word {
@@ -2143,16 +2141,6 @@ textarea {
 .nativ-logo-compact .nativ-logo-mark {
   width: 32px;
   height: 32px;
-  padding: 5px;
-}
-
-.nativ-logo-dark .nativ-logo-mark {
-  background: var(--brand-navy);
-}
-
-.nativ-logo-monochrome .nativ-logo-mark {
-  border-color: currentColor;
-  background: transparent;
 }
 
 .nav a:hover,
