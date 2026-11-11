@@ -1,4 +1,6 @@
 import type { CSSProperties } from "react";
+import Image from "next/image";
+import logoMark from "../../public/nativ-logo.svg";
 
 export type NativLogoVariant = "primary" | "compact" | "light" | "dark" | "monochrome";
 
@@ -16,7 +18,7 @@ export function NativLogo({
 
   return (
     <span className={`nativ-logo nativ-logo-${variant}${compact ? " nativ-logo-compact" : ""}`} style={style} aria-label="Nativ">
-      <img className="nativ-logo-mark" src="/nativ-logo.svg" alt="" aria-hidden="true" />
+      <Image className="nativ-logo-mark" src={logoMark} alt="" aria-hidden="true" width={38} height={38} />
       {!compact ? <span className="nativ-logo-word">nativ</span> : null}
     </span>
   );
