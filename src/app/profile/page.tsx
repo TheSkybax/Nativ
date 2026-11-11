@@ -1,5 +1,6 @@
+import { Suspense } from "react";
 import { AppShell } from "@/components/social-shell";
-import { ProfileSpace } from "@/components/profile-space";
+import { ProfileViewer } from "@/components/profile-viewer";
 import { PageAdRails } from "@/components/page-ad-rails";
 import { demoBadgeAsOf, demoBadgeAssignments, demoPosts, demoProfileCustomization, demoUsers, getDemoPrimaryBadge } from "@/lib/demo-data";
 import {
@@ -9,12 +10,7 @@ import {
   isDeveloperCosmeticsPreviewEnabled
 } from "@/lib/personalization";
 
-export default async function ProfilePage({
-  searchParams
-}: {
-  searchParams: Promise<{ user?: string }>;
-}) {
-  const params = await searchParams;
+export default async function ProfilePage() {
   const customization = buildProfileCustomization(demoProfileCustomization);
   const owner = {
     ...demoUsers[0],
@@ -56,17 +52,18 @@ export default async function ProfilePage({
   return (
     <AppShell viewer={{ id: owner.id, username: owner.username, displayName: owner.displayName, verified: owner.verified, verificationType: owner.verificationType, badge: getDemoPrimaryBadge(owner.id) }}>
       <PageAdRails>
-        <ProfileSpace
-          owner={owner}
-          visitor={visitor}
-          customization={customization}
-          badges={badges}
-          visitorBadges={visitorBadges}
-          posts={ownerPosts}
-          accountAgeDays={getAccountAgeDays(owner.createdAt, demoNow)}
-          developerCosmeticsPreview={developerCosmeticsPreview}
-          initialViewedAccountId={params.user === visitor.id ? visitor.id : owner.id}
-        />
+        <Suspense fallback={null}>
+          <ProfileViewer
+            owner={owner}
+            visitor={visitor}
+            customization={customization}
+            badges={badges}
+            visitorBadges={visitorBadges}
+            posts={ownerPosts}
+            accountAgeDays={getAccountAgeDays(owner.createdAt, demoNow)}
+            developerCosmeticsPreview={developerCosmeticsPreview}
+          />
+        </Suspense>
       </PageAdRails>
     </AppShell>
   );

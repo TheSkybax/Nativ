@@ -1,3 +1,5 @@
+export const dynamic = "force-static";
+
 import { NextResponse } from "next/server";
 import { demoBadgeAsOf, demoBadgeAssignments, demoProfileCustomization, demoUsers } from "@/lib/demo-data";
 import { buildProfileCustomization, getProfileBadges } from "@/lib/personalization";

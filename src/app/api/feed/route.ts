@@ -1,3 +1,5 @@
+export const dynamic = "force-static";
+
 import { NextResponse } from "next/server";
 import { demoBlocks, demoFollowing, demoPosts } from "@/lib/demo-data";
 import { buildDiscoveryFeed } from "@/lib/discovery-rules";
